@@ -2,7 +2,21 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Heart, Share2, Star, Zap, Shield, Truck, RotateCcw, ArrowLeft } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Heart,
+  Share2,
+  Star,
+  Zap,
+  Shield,
+  Truck,
+  RotateCcw,
+  ArrowLeft,
+  Check,
+  Info,
+  ShoppingBag,
+  Clock,
+} from "lucide-react"
 import { AddToCartButton } from "@/components/add-to-cart-button"
 
 interface ProductPageProps {
@@ -58,12 +72,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   console.log("📄 Product page başlatılıyor, params:", params)
 
   try {
-    // Sadece API'den dene, demo ürün yok
+    // API'den ürünü çek
     const product = await getProductFromAPI(params.id)
 
     if (!product) {
       console.log("❌ Ürün bulunamadı")
-      // notFound() çağırmak yerine hata sayfası göster
       return (
         <div className="container mx-auto px-4 py-8">
           <Button variant="outline" className="mb-6" asChild>
@@ -76,7 +89,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="text-center py-16">
             <div className="mb-6">
               <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-12 h-12 text-gray-400" />
+                <Info className="w-12 h-12 text-gray-400" />
               </div>
             </div>
             <h1 className="text-2xl font-bold mb-4">Ürün Bulunamadı</h1>
@@ -102,25 +115,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
     const normalizedProduct = {
       id: product.id,
       name: product.name,
-      description: product.description,
-      price: product.price,
+      description: product.description || "Bu ürün için henüz detaylı açıklama bulunmamaktadır.",
+      price: product.price || 0,
+      originalPrice: product.original_price || product.originalPrice,
       image: product.primary_image || product.image || "/placeholder.svg?height=400&width=400",
+      images: product.images || [product.primary_image || product.image || "/placeholder.svg?height=400&width=400"],
       category: product.category_name || product.category || "Genel",
       nfcEnabled: product.nfc_enabled || product.nfcEnabled || false,
       stock: product.stock || 0,
       rating: product.rating || 4.5,
       reviewCount: product.review_count || product.reviewCount || 0,
+      features: product.features || [
+        "Yüksek kalite malzeme",
+        "Modern tasarım",
+        "Dayanıklı yapı",
+        "Kolay kullanım",
+        "Garanti kapsamında",
+      ],
+      specifications: product.specifications || {
+        Malzeme: "Yüksek Kalite",
+        Renk: "Çeşitli",
+        Boyut: "Standart",
+        Garanti: "2 Yıl",
+      },
+      isCustomDesign: product.id === "custom-design" || product.isCustomDesign,
     }
+
+    // İndirim hesapla
+    const discountPercentage = normalizedProduct.originalPrice
+      ? Math.round(
+          ((normalizedProduct.originalPrice - normalizedProduct.price) / normalizedProduct.originalPrice) * 100,
+        )
+      : 0
 
     return (
       <div className="container mx-auto px-4 py-8">
-        {/* Debug bilgisi - sadece development'ta göster */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
-            <strong>Debug:</strong> ID: {params.id}, Ürün: {normalizedProduct.name}
-          </div>
-        )}
-
         {/* Geri Dön Butonu */}
         <Button variant="outline" className="mb-6" asChild>
           <Link href="/products">
@@ -130,17 +159,38 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </Button>
 
         <div className="grid lg:grid-cols-2 gap-12 mb-16">
-          {/* Ürün Görseli */}
-          <div className="bg-gray-100 rounded-lg overflow-hidden">
-            <img
-              src={normalizedProduct.image || "/placeholder.svg"}
-              alt={normalizedProduct.name}
-              className="w-full h-auto object-cover"
-              onError={(e) => {
-                console.log("❌ Görsel yüklenemedi:", normalizedProduct.image)
-                e.currentTarget.src = "/placeholder.svg?height=400&width=400"
-              }}
-            />
+          {/* Ürün Görselleri */}
+          <div className="space-y-4">
+            {/* Ana Görsel */}
+            <div className="bg-gray-100 rounded-lg overflow-hidden aspect-square">
+              <img
+                src={normalizedProduct.image || "/placeholder.svg"}
+                alt={normalizedProduct.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.log("❌ Görsel yüklenemedi:", normalizedProduct.image)
+                  e.currentTarget.src = "/placeholder.svg?height=400&width=400"
+                }}
+              />
+            </div>
+
+            {/* Küçük Görseller */}
+            {normalizedProduct.images && normalizedProduct.images.length > 1 && (
+              <div className="grid grid-cols-4 gap-2">
+                {normalizedProduct.images.slice(0, 4).map((image, index) => (
+                  <div key={index} className="bg-gray-100 rounded-lg overflow-hidden aspect-square">
+                    <img
+                      src={image || "/placeholder.svg"}
+                      alt={`${normalizedProduct.name} - Görsel ${index + 1}`}
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg?height=100&width=100"
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Ürün Bilgileri */}
@@ -153,6 +203,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     <Zap className="w-3 h-3 mr-1" />
                     NFC Özellikli
                   </Badge>
+                )}
+                {normalizedProduct.stock <= 5 && normalizedProduct.stock > 0 && (
+                  <Badge variant="destructive">Son {normalizedProduct.stock} Ürün</Badge>
+                )}
+                {normalizedProduct.isCustomDesign && (
+                  <Badge className="bg-purple-100 text-purple-800">Özel Tasarım</Badge>
                 )}
               </div>
               <h1 className="text-3xl font-bold mb-4">{normalizedProduct.name}</h1>
@@ -176,28 +232,52 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="space-y-2">
               <div className="flex items-center gap-4">
                 <span className="text-3xl font-bold text-primary">₺{normalizedProduct.price.toLocaleString()}</span>
+                {normalizedProduct.originalPrice && (
+                  <>
+                    <span className="text-xl text-gray-500 line-through">
+                      ₺{normalizedProduct.originalPrice.toLocaleString()}
+                    </span>
+                    <Badge variant="destructive">{discountPercentage}% İndirim</Badge>
+                  </>
+                )}
               </div>
               <p className="text-sm text-gray-600">KDV Dahil • Ücretsiz Kargo</p>
               {normalizedProduct.stock > 0 ? (
-                <p className="text-sm text-green-600">✅ Stokta ({normalizedProduct.stock} adet)</p>
+                <p className="text-sm text-green-600 flex items-center">
+                  <Check className="w-4 h-4 mr-1" /> Stokta ({normalizedProduct.stock} adet)
+                </p>
               ) : (
-                <p className="text-sm text-red-600">❌ Stokta yok</p>
+                <p className="text-sm text-red-600 flex items-center">
+                  <Info className="w-4 h-4 mr-1" /> Stokta yok
+                </p>
               )}
             </div>
 
-            <p className="text-gray-700 leading-relaxed">{normalizedProduct.description}</p>
+            <div className="border-t border-b py-4">
+              <p className="text-gray-700 leading-relaxed">{normalizedProduct.description}</p>
+            </div>
 
             {/* Sepete Ekle */}
             <div className="space-y-4">
-              <AddToCartButton
-                product={{
-                  id: normalizedProduct.id,
-                  name: normalizedProduct.name,
-                  price: normalizedProduct.price,
-                  stock: normalizedProduct.stock,
-                  image: normalizedProduct.image,
-                }}
-              />
+              {normalizedProduct.isCustomDesign ? (
+                <Button className="w-full h-12 text-lg" asChild>
+                  <Link href="/custom-design">
+                    <Zap className="w-5 h-5 mr-2" />
+                    Tasarlamaya Başla
+                  </Link>
+                </Button>
+              ) : (
+                <AddToCartButton
+                  product={{
+                    id: normalizedProduct.id,
+                    name: normalizedProduct.name,
+                    price: normalizedProduct.price,
+                    stock: normalizedProduct.stock,
+                    image: normalizedProduct.image,
+                  }}
+                  className="w-full h-12 text-lg"
+                />
+              )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1">
                   <Heart className="w-4 h-4 mr-2" />
@@ -210,8 +290,33 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             </div>
 
+            {/* Teslimat Bilgileri */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              <div className="flex items-center gap-3">
+                <Truck className="w-5 h-5 text-blue-600" />
+                <div>
+                  <p className="font-medium">Ücretsiz Kargo</p>
+                  <p className="text-sm text-gray-600">1-3 iş günü içinde kargoya verilir</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="font-medium">Kolay İade</p>
+                  <p className="text-sm text-gray-600">14 gün içinde ücretsiz iade</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="font-medium">Hızlı Teslimat</p>
+                  <p className="text-sm text-gray-600">Aynı gün kargo seçeneği</p>
+                </div>
+              </div>
+            </div>
+
             {/* Güvence Bilgileri */}
-            <div className="grid grid-cols-2 gap-4 pt-6 border-t">
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-green-600" />
                 <span className="text-sm">2 Yıl Garanti</span>
@@ -232,36 +337,83 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </div>
 
-        {/* Basit özellikler bölümü */}
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold mb-4">Ürün Özellikleri</h3>
-            <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span>Yüksek kalite malzeme</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span>Modern ve şık tasarım</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span>Dayanıklı yapı</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span>Kolay kullanım</span>
-              </li>
-              {normalizedProduct.nfcEnabled && (
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                  <span>NFC teknolojisi</span>
-                </li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
+        {/* Detaylı Bilgiler */}
+        <Tabs defaultValue="features" className="mb-16">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="features">Özellikler</TabsTrigger>
+            <TabsTrigger value="specifications">Teknik Özellikler</TabsTrigger>
+            <TabsTrigger value="reviews">Değerlendirmeler</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="features" className="mt-6">
+            <Card>
+              <CardContent className="pt-6">
+                <ul className="space-y-3">
+                  {normalizedProduct.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="specifications" className="mt-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  {Object.entries(normalizedProduct.specifications).map(([key, value]) => (
+                    <div key={key} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
+                      <span className="font-medium">{key}</span>
+                      <span className="text-gray-600">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="mt-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Henüz değerlendirme yok</h3>
+                  <p className="text-gray-600">Bu ürün için ilk değerlendirmeyi siz yapın!</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Benzer Ürünler */}
+        <section>
+          <h2 className="text-2xl font-bold mb-6">Benzer Ürünler</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <div className="aspect-square bg-gray-100">
+                  <img
+                    src={`/placeholder.svg?height=200&width=200&query=nfc+bracelet+${i}`}
+                    alt="Benzer Ürün"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <CardContent className="p-4">
+                  <h3 className="font-medium mb-2 line-clamp-1">NFC Bileklik Model {i}</h3>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">₺{(199 + i * 50).toLocaleString()}</span>
+                    <Badge variant="outline" className="text-xs">
+                      Yeni
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
       </div>
     )
   } catch (error) {

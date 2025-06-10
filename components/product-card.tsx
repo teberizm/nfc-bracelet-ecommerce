@@ -1,88 +1,100 @@
-"use client"
-
-import type React from "react"
-
 import Link from "next/link"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ShoppingCart, Zap, Wand2 } from "lucide-react"
-import { useCart } from "@/contexts/cart-context"
-import { toast } from "@/hooks/use-toast"
-import type { Product } from "@/contexts/cart-context"
+import { Card, CardContent } from "@/components/ui/card"
+import { Zap } from "lucide-react"
 
 interface ProductCardProps {
-  product: Product
+  product: {
+    id: string
+    name: string
+    price: number
+    image?: string
+    primary_image?: string
+    category?: string
+    category_name?: string
+    nfc_enabled?: boolean
+    nfcEnabled?: boolean
+    stock?: number
+    isCustomDesign?: boolean
+    originalPrice?: number
+    original_price?: number
+  }
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { dispatch } = useCart()
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (product.isCustomDesign) {
-      return // Özel tasarım ürünleri sepete eklenemez
-    }
-
-    dispatch({ type: "ADD_ITEM", payload: product })
-    toast({
-      title: "Sepete Eklendi!",
-      description: `${product.name} sepetinize eklendi.`,
-    })
+  // Normalize product data
+  const normalizedProduct = {
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    image: product.primary_image || product.image || "/placeholder.svg?height=300&width=300",
+    category: product.category_name || product.category || "Genel",
+    nfcEnabled: product.nfc_enabled || product.nfcEnabled || false,
+    stock: product.stock || 0,
+    isCustomDesign: product.id === "custom-design" || product.isCustomDesign || false,
+    originalPrice: product.original_price || product.originalPrice,
   }
 
-  // Özel tasarım ürünü için farklı link ve görünüm
-  if (product.isCustomDesign) {
-    return (
-      <Link href="/custom-design">
-        <Card className="overflow-hidden h-full transition-all duration-200 hover:shadow-lg border-2 border-purple-300 bg-gradient-to-br from-white to-purple-50">
-          <div className="aspect-square relative bg-white flex items-center justify-center p-6">
-            <Wand2 className="h-24 w-24 text-purple-500" />
-            <Badge className="absolute top-2 right-2 bg-purple-600">
-              <Wand2 className="h-3 w-3 mr-1" />
-              Özel Tasarım
-            </Badge>
-          </div>
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-lg mb-2 text-purple-700">{product.name}</h3>
-            <p className="text-gray-600 text-sm line-clamp-2">{product.description}</p>
-          </CardContent>
-          <CardFooter className="p-4 pt-0 flex justify-between items-center">
-            <Button className="w-full bg-purple-600 hover:bg-purple-700">
-              <Wand2 className="h-4 w-4 mr-2" />
-              Tasarlamaya Başla
-            </Button>
-          </CardFooter>
-        </Card>
-      </Link>
-    )
-  }
+  // Calculate discount percentage
+  const discountPercentage = normalizedProduct.originalPrice
+    ? Math.round(((normalizedProduct.originalPrice - normalizedProduct.price) / normalizedProduct.originalPrice) * 100)
+    : 0
 
-  // Normal ürünler için standart görünüm
   return (
-    <Link href={`/product/${product.id}`}>
-      <Card className="overflow-hidden h-full transition-all duration-200 hover:shadow-lg">
-        <div className="aspect-square relative bg-gray-100">
-          <img src={product.image || "/placeholder.svg"} alt={product.name} className="object-cover w-full h-full" />
-          {product.nfcEnabled && (
-            <Badge className="absolute top-2 right-2 bg-blue-600">
-              <Zap className="h-3 w-3 mr-1" />
-              NFC Özellikli
+    <Link href={`/product/${normalizedProduct.id}`}>
+      <Card className="overflow-hidden h-full transition-all duration-300 hover:shadow-lg">
+        <div className="aspect-square bg-gray-100 relative overflow-hidden">
+          <img
+            src={normalizedProduct.image || "/placeholder.svg"}
+            alt={normalizedProduct.name}
+            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+            onError={(e) => {
+              e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+            }}
+          />
+          {normalizedProduct.originalPrice && (
+            <Badge variant="destructive" className="absolute top-2 right-2">
+              %{discountPercentage} İndirim
             </Badge>
+          )}
+          {normalizedProduct.stock <= 5 && normalizedProduct.stock > 0 && (
+            <Badge variant="secondary" className="absolute top-2 left-2">
+              Son {normalizedProduct.stock} Ürün
+            </Badge>
+          )}
+          {normalizedProduct.stock === 0 && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              <Badge variant="destructive" className="text-lg py-1.5">
+                Tükendi
+              </Badge>
+            </div>
           )}
         </div>
         <CardContent className="p-4">
-          <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
-          <p className="text-gray-600 text-sm line-clamp-2">{product.description}</p>
+          <div className="flex items-center justify-between mb-2">
+            <Badge variant="outline" className="text-xs">
+              {normalizedProduct.category}
+            </Badge>
+            {normalizedProduct.nfcEnabled && (
+              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                <Zap className="w-3 h-3 mr-1" />
+                NFC
+              </Badge>
+            )}
+          </div>
+          <h3 className="font-medium mb-2 line-clamp-2 min-h-[2.5rem]">{normalizedProduct.name}</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-bold text-primary">₺{normalizedProduct.price.toLocaleString()}</span>
+              {normalizedProduct.originalPrice && (
+                <span className="text-sm text-gray-500 line-through ml-2">
+                  ₺{normalizedProduct.originalPrice.toLocaleString()}
+                </span>
+              )}
+            </div>
+            {normalizedProduct.isCustomDesign && <Badge className="bg-purple-100 text-purple-800">Özel</Badge>}
+          </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 flex justify-between items-center">
-          <span className="font-bold text-lg">₺{product.price.toLocaleString("tr-TR")}</span>
-          <Button size="sm" onClick={handleAddToCart}>
-            <ShoppingCart className="h-4 w-4" />
-          </Button>
-        </CardFooter>
       </Card>
     </Link>
   )

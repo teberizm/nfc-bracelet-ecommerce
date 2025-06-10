@@ -1,84 +1,91 @@
 import { NextResponse } from "next/server"
-import { getProductById } from "@/lib/database"
+import { sql } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const id = params.id
-    console.log("🔍 API: Fetching product with ID:", id)
-    console.log("🔍 API: Request URL:", request.url)
+    console.log("🔍 API: Ürün ID'si:", id)
 
-    // Environment variables kontrol et
-    console.log("🔍 API: DATABASE_URL exists:", !!process.env.DATABASE_URL)
+    // Doğrudan SQL sorgusu ile ürünü çekelim
+    const result = await sql`
+      SELECT p.*, c.name as category_name, c.slug as category_slug,
+             array_agg(DISTINCT pi.image_url) FILTER (WHERE pi.image_url IS NOT NULL) as images,
+             array_agg(DISTINCT pf.feature_name) FILTER (WHERE pf.feature_name IS NOT NULL) as features,
+             json_object_agg(ps.spec_name, ps.spec_value) FILTER (WHERE ps.spec_name IS NOT NULL) as specifications
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN product_images pi ON p.id = pi.product_id
+      LEFT JOIN product_features pf ON p.id = pf.product_id
+      LEFT JOIN product_specifications ps ON p.id = ps.product_id
+      WHERE p.id = ${id}
+      GROUP BY p.id, c.id
+      LIMIT 1
+    `
 
-    // Önce veritabanından dene
-    try {
-      console.log("🔍 API: Trying database...")
-      const product = await getProductById(id)
-      console.log("🔍 API: Database result:", product ? "Found" : "Not found")
+    console.log("🔍 API: SQL sorgu sonucu:", result.length > 0 ? "Ürün bulundu" : "Ürün bulunamadı")
 
-      if (product) {
-        console.log("✅ API: Product found in database:", {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          category: product.category_name,
-          nfc_enabled: product.nfc_enabled,
-          stock: product.stock,
-        })
+    if (result.length > 0) {
+      const product = result[0]
+      console.log("✅ API: Ürün bulundu:", product.name)
 
-        return NextResponse.json({
-          success: true,
-          product: product,
-        })
-      }
-    } catch (dbError) {
-      console.error("❌ API: Database error:", dbError)
-      console.error("❌ API: Database error details:", {
-        message: dbError.message,
-        stack: dbError.stack,
+      return NextResponse.json({
+        success: true,
+        product: product,
       })
     }
 
-    // Veritabanında bulunamazsa demo ürünleri dene
-    console.log("🔄 API: Trying demo products...")
-    const demoProduct = getDemoProduct(id)
+    // Özel ürünler için kontrol
+    if (id === "custom-design") {
+      console.log("✅ API: Özel tasarım ürünü")
+      return NextResponse.json({
+        success: true,
+        product: {
+          id: "custom-design",
+          name: "Kendin Tasarla",
+          description:
+            "Kendi özel NFC takınızı tasarlayın. İstediğiniz malzeme, renk ve özellikleri seçerek size özel bir ürün oluşturun.",
+          price: 499.99,
+          primary_image: "/placeholder.svg?height=400&width=400",
+          category_name: "Özel Tasarım",
+          nfc_enabled: true,
+          stock: 999,
+          rating: 5.0,
+          review_count: 42,
+          features: [
+            "Tamamen kişiselleştirilebilir",
+            "Yüksek kalite malzemeler",
+            "Profesyonel tasarım desteği",
+            "Hızlı üretim süreci",
+            "Ücretsiz kargo",
+          ],
+          specifications: {
+            "Malzeme Seçenekleri": "Deri, Metal, Silikon, Ahşap",
+            "Renk Seçenekleri": "Sınırsız",
+            "NFC Tipi": "NTAG216 (924 byte)",
+            "Üretim Süresi": "3-5 iş günü",
+            Garanti: "Ömür boyu",
+          },
+        },
+      })
+    }
 
+    // Demo ürünler için kontrol
+    const demoProduct = getDemoProduct(id)
     if (demoProduct) {
-      console.log("✅ API: Demo product found:", demoProduct.name)
+      console.log("✅ API: Demo ürün bulundu:", demoProduct.name)
       return NextResponse.json({
         success: true,
         product: demoProduct,
       })
     }
 
-    console.log("❌ API: Product not found anywhere")
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Ürün bulunamadı",
-        debug: {
-          searchedId: id,
-          databaseAttempted: true,
-          demoAttempted: true,
-        },
-      },
-      { status: 404 },
-    )
+    console.log("❌ API: Ürün bulunamadı")
+    return NextResponse.json({ success: false, error: "Ürün bulunamadı" }, { status: 404 })
   } catch (error) {
-    console.error("❌ API: General error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Ürün yüklenemedi",
-        debug: {
-          errorMessage: error.message,
-          errorStack: error.stack,
-        },
-      },
-      { status: 500 },
-    )
+    console.error("❌ API: Genel hata:", error)
+    return NextResponse.json({ success: false, error: "Ürün yüklenemedi" }, { status: 500 })
   }
 }
 
@@ -88,7 +95,7 @@ function getDemoProduct(id: string) {
       id: "1",
       name: "Premium NFC Deri Bileklik",
       description: "Gerçek deri ve premium NFC teknolojisi ile özel anılarınızı paylaşın.",
-      price: 299,
+      price: 299.99,
       primary_image: "/placeholder.svg?height=400&width=400",
       category_name: "Deri Bileklik",
       nfc_enabled: true,
@@ -115,7 +122,7 @@ function getDemoProduct(id: string) {
       id: "2",
       name: "Spor NFC Silikon Bileklik",
       description: "Su geçirmez silikon malzeme ile aktif yaşam tarzınıza uygun.",
-      price: 199,
+      price: 199.99,
       primary_image: "/placeholder.svg?height=400&width=400",
       category_name: "Silikon Bileklik",
       nfc_enabled: true,
@@ -141,7 +148,7 @@ function getDemoProduct(id: string) {
       id: "3",
       name: "Lüks NFC Metal Bileklik",
       description: "Paslanmaz çelik ve şık tasarım ile özel günleriniz için.",
-      price: 499,
+      price: 499.99,
       primary_image: "/placeholder.svg?height=400&width=400",
       category_name: "Metal Bileklik",
       nfc_enabled: true,
@@ -161,7 +168,7 @@ function getDemoProduct(id: string) {
       id: "4",
       name: "Klasik NFC Deri Bileklik",
       description: "Zamansız tasarım ve dayanıklı deri malzeme.",
-      price: 249,
+      price: 249.99,
       primary_image: "/placeholder.svg?height=400&width=400",
       category_name: "Deri Bileklik",
       nfc_enabled: true,
