@@ -13,35 +13,54 @@ interface ProductPageProps {
 }
 
 // Veritabanından ürün çekme fonksiyonu
-async function getProductFromDatabase(id: string) {
+async function getProductFromAPI(id: string) {
   try {
-    console.log("🔍 Veritabanından ürün çekiliyor, ID:", id)
+    console.log("🔍 Ürün detay sayfası - ID:", id)
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/products/${id}`, {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+
+    const url = `${baseUrl}/api/products/${id}`
+    console.log("🔍 API URL:", url)
+
+    const response = await fetch(url, {
       cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
     })
 
+    console.log("🔍 API Response status:", response.status)
+    console.log("🔍 API Response ok:", response.ok)
+
     if (!response.ok) {
-      console.log("❌ API response not ok:", response.status)
+      console.log("❌ API response not ok:", response.status, response.statusText)
+      const errorText = await response.text()
+      console.log("❌ Error response:", errorText)
       return null
     }
 
     const data = await response.json()
-    console.log("✅ API response:", data)
+    console.log("✅ API response data:", data)
 
     if (data.success && data.product) {
+      console.log("✅ Product found:", data.product.name)
       return data.product
     }
 
+    console.log("❌ No product in response")
     return null
   } catch (error) {
-    console.error("❌ Veritabanı hatası:", error)
+    console.error("❌ API fetch error:", error)
     return null
   }
 }
 
 // Demo ürün verisi (fallback)
 function getDemoProduct(id: string) {
+  console.log("🔄 Demo ürün aranıyor, ID:", id)
+
   const demoProducts = {
     "1": {
       id: "1",
@@ -54,21 +73,6 @@ function getDemoProduct(id: string) {
       stock: 15,
       rating: 4.8,
       review_count: 24,
-      features: [
-        "Su geçirmez tasarım",
-        "Uzun pil ömrü",
-        "Şık ve modern görünüm",
-        "Kolay kullanım",
-        "Tüm telefonlarla uyumlu",
-      ],
-      specifications: {
-        Malzeme: "Gerçek Deri",
-        Renk: "Kahverengi",
-        Boyut: "Ayarlanabilir",
-        "NFC Tipi": "NTAG213",
-        "Pil Ömrü": "5 yıl",
-        "Su Geçirmezlik": "IP67",
-      },
     },
     "2": {
       id: "2",
@@ -81,20 +85,6 @@ function getDemoProduct(id: string) {
       stock: 8,
       rating: 4.6,
       review_count: 18,
-      features: [
-        "Su geçirmez",
-        "Esnek silikon malzeme",
-        "Spor aktiviteleri için uygun",
-        "Kolay temizlenir",
-        "Çeşitli renk seçenekleri",
-      ],
-      specifications: {
-        Malzeme: "Silikon",
-        Renk: "Siyah",
-        Boyut: "S/M/L",
-        "NFC Tipi": "NTAG213",
-        "Su Geçirmezlik": "IP68",
-      },
     },
     "3": {
       id: "3",
@@ -107,14 +97,6 @@ function getDemoProduct(id: string) {
       stock: 3,
       rating: 4.9,
       review_count: 12,
-      features: ["Paslanmaz çelik", "Lüks tasarım", "Çizilmeye dayanıklı", "Uzun ömürlü", "Şık görünüm"],
-      specifications: {
-        Malzeme: "Paslanmaz Çelik",
-        Renk: "Gümüş",
-        Boyut: "Ayarlanabilir",
-        "NFC Tipi": "NTAG216",
-        Ağırlık: "45g",
-      },
     },
     "4": {
       id: "4",
@@ -127,38 +109,33 @@ function getDemoProduct(id: string) {
       stock: 12,
       rating: 4.7,
       review_count: 31,
-      features: ["Klasik tasarım", "Dayanıklı deri", "Günlük kullanım", "Rahat", "Şık"],
-      specifications: {
-        Malzeme: "Deri",
-        Renk: "Siyah",
-        Boyut: "Ayarlanabilir",
-        "NFC Tipi": "NTAG213",
-      },
     },
   }
 
-  return demoProducts[id as keyof typeof demoProducts] || null
+  const product = demoProducts[id as keyof typeof demoProducts] || null
+  console.log("🔄 Demo ürün sonucu:", product ? product.name : "Bulunamadı")
+  return product
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
+  console.log("📄 Product page başlatılıyor, params:", params)
+
   try {
-    console.log("📄 Product page loading, ID:", params.id)
+    // Önce API'den dene
+    let product = await getProductFromAPI(params.id)
 
-    // Önce veritabanından dene
-    let product = await getProductFromDatabase(params.id)
-
-    // Veritabanından bulamazsa demo ürünleri dene
+    // API'den bulamazsa demo ürünleri dene
     if (!product) {
-      console.log("🔄 Veritabanında bulunamadı, demo ürünler deneniyor...")
+      console.log("🔄 API'den bulunamadı, demo ürünler deneniyor...")
       product = getDemoProduct(params.id)
     }
 
     if (!product) {
-      console.log("❌ Ürün hiçbir yerde bulunamadı")
+      console.log("❌ Hiçbir yerde ürün bulunamadı")
       notFound()
     }
 
-    console.log("✅ Ürün bulundu:", product.name)
+    console.log("✅ Kullanılacak ürün:", product.name)
 
     // Veritabanı formatını normalize et
     const normalizedProduct = {
@@ -172,23 +149,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
       stock: product.stock || 0,
       rating: product.rating || 4.5,
       reviewCount: product.review_count || product.reviewCount || 0,
-      features: product.features || [
-        "Yüksek kalite malzeme",
-        "Modern tasarım",
-        "Dayanıklı yapı",
-        "Kolay kullanım",
-        "Garanti kapsamında",
-      ],
-      specifications: product.specifications || {
-        Malzeme: "Yüksek Kalite",
-        Renk: "Çeşitli",
-        Boyut: "Standart",
-        Garanti: "2 Yıl",
-      },
     }
 
     return (
       <div className="container mx-auto px-4 py-8">
+        {/* Debug bilgisi - sadece development'ta göster */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
+            <strong>Debug:</strong> ID: {params.id}, Ürün: {normalizedProduct.name}
+          </div>
+        )}
+
         {/* Geri Dön Butonu */}
         <Button variant="outline" className="mb-6" asChild>
           <Link href="/products">
@@ -204,6 +175,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
               src={normalizedProduct.image || "/placeholder.svg"}
               alt={normalizedProduct.name}
               className="w-full h-auto object-cover"
+              onError={(e) => {
+                console.log("❌ Görsel yüklenemedi:", normalizedProduct.image)
+                e.currentTarget.src = "/placeholder.svg?height=400&width=400"
+              }}
             />
           </div>
 
@@ -296,42 +271,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </div>
 
-        {/* Özellikler */}
-        <div className="grid md:grid-cols-2 gap-8">
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="text-lg font-semibold mb-4">Özellikler</h3>
-              <ul className="space-y-2">
-                {normalizedProduct.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="text-lg font-semibold mb-4">Teknik Özellikler</h3>
-              <div className="space-y-2">
-                {Object.entries(normalizedProduct.specifications).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span className="font-medium">{key}:</span>
-                    <span className="text-gray-600">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Basit özellikler bölümü */}
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">Ürün Özellikleri</h3>
+            <ul className="space-y-2">
+              <li className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                <span>Yüksek kalite malzeme</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                <span>Modern ve şık tasarım</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                <span>Dayanıklı yapı</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                <span>Kolay kullanım</span>
+              </li>
+              {normalizedProduct.nfcEnabled && (
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                  <span>NFC teknolojisi</span>
+                </li>
+              )}
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     )
   } catch (error) {
-    console.error("❌ Product page error:", error)
+    console.error("❌ Product page genel hatası:", error)
 
-    // Hata durumunda basit bir sayfa göster
     return (
       <div className="container mx-auto px-4 py-8">
         <Button variant="outline" className="mb-6" asChild>
@@ -344,6 +318,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="text-center py-16">
           <h1 className="text-2xl font-bold mb-4">Ürün Yüklenemedi</h1>
           <p className="text-gray-600 mb-6">Bu ürün şu anda görüntülenemiyor. Lütfen daha sonra tekrar deneyin.</p>
+          <p className="text-sm text-gray-500 mb-6">Hata: {error.message}</p>
           <Button asChild>
             <Link href="/products">Ürünlere Geri Dön</Link>
           </Button>
