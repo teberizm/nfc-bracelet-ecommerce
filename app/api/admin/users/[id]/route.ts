@@ -5,7 +5,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
 
-    // Kullanıcı bilgilerini çek
+    // Önce sadece kullanıcı bilgilerini çek
     const userResult = await sql`
       SELECT 
         id,
@@ -13,7 +13,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         email,
         phone,
         created_at,
-        last_login,
         status,
         notes
       FROM users 
@@ -21,52 +20,53 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     `
 
     console.log("Kullanıcı sorgu sonucu:", userResult)
+    console.log("Kullanıcı sorgu sonucu tipi:", typeof userResult)
+    console.log("Kullanıcı sorgu sonucu uzunluğu:", userResult?.length)
 
     if (!userResult || userResult.length === 0) {
+      console.log("Kullanıcı bulunamadı")
       return NextResponse.json({ success: false, message: "Kullanıcı bulunamadı" }, { status: 404 })
     }
 
     const user = userResult[0]
+    console.log("Bulunan kullanıcı:", user)
 
-    // Kullanıcının siparişlerini çek
-    const ordersResult = await sql`
-      SELECT 
-        o.id,
-        o.created_at,
-        o.status,
-        o.total_amount,
-        COALESCE(
-          array_agg(
-            CASE 
-              WHEN oi.product_id IS NOT NULL 
-              THEN p.name 
-              ELSE 'Özel Tasarım'
-            END
-          ) FILTER (WHERE oi.id IS NOT NULL),
-          ARRAY[]::text[]
-        ) as products
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN products p ON oi.product_id = p.id
-      WHERE o.user_id = ${params.id}
-      GROUP BY o.id, o.created_at, o.status, o.total_amount
-      ORDER BY o.created_at DESC
-    `
-
-    console.log("Siparişler sorgu sonucu:", ordersResult)
-
-    // Toplam sipariş sayısı ve harcama
-    const statsResult = await sql`
-      SELECT 
-        COUNT(*)::int as total_orders,
-        COALESCE(SUM(total_amount), 0)::numeric as total_spent
+    // Basit sipariş sayısı
+    const orderCountResult = await sql`
+      SELECT COUNT(*) as count
       FROM orders 
       WHERE user_id = ${params.id}
     `
 
-    console.log("İstatistikler sorgu sonucu:", statsResult)
+    console.log("Sipariş sayısı sonucu:", orderCountResult)
 
-    const stats = statsResult[0] || { total_orders: 0, total_spent: 0 }
+    const orderCount = orderCountResult[0]?.count || 0
+
+    // Toplam harcama
+    const totalSpentResult = await sql`
+      SELECT COALESCE(SUM(total_amount), 0) as total
+      FROM orders 
+      WHERE user_id = ${params.id}
+    `
+
+    console.log("Toplam harcama sonucu:", totalSpentResult)
+
+    const totalSpent = totalSpentResult[0]?.total || 0
+
+    // Basit sipariş listesi
+    const ordersResult = await sql`
+      SELECT 
+        id,
+        created_at,
+        status,
+        total_amount
+      FROM orders
+      WHERE user_id = ${params.id}
+      ORDER BY created_at DESC
+      LIMIT 10
+    `
+
+    console.log("Siparişler sonucu:", ordersResult)
 
     // Kullanıcı verilerini normalize et
     const userData = {
@@ -75,10 +75,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       email: user.email || "",
       phone: user.phone || "",
       createdAt: user.created_at,
-      lastLogin: user.last_login,
+      lastLogin: null, // Şimdilik null
       status: user.status || "active",
-      totalOrders: Number(stats.total_orders) || 0,
-      totalSpent: Number(stats.total_spent) || 0,
+      totalOrders: Number(orderCount) || 0,
+      totalSpent: Number(totalSpent) || 0,
       notes: user.notes || "",
     }
 
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       date: new Date(order.created_at).toISOString().split("T")[0],
       status: order.status || "pending",
       total: Number(order.total_amount) || 0,
-      products: Array.isArray(order.products) ? order.products.filter((p) => p && p !== null) : [],
+      products: ["Ürün bilgisi yükleniyor..."], // Şimdilik basit
     }))
 
     console.log("Normalize edilmiş kullanıcı verisi:", userData)
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     })
   } catch (error: any) {
     console.error("Kullanıcı detayı çekilirken hata:", error)
-    console.error("Hata detayı:", error.message)
+    console.error("Hata mesajı:", error.message)
     console.error("Hata stack:", error.stack)
 
     return NextResponse.json(
@@ -120,7 +120,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
     const { name, email, phone, status, notes } = body
 
-    console.log("Kullanıcı güncelleniyor, ID:", params.id, "Veriler:", { name, email, phone, status })
+    console.log("Kullanıcı güncelleniyor, ID:", params.id)
 
     await sql`
       UPDATE users 
@@ -129,8 +129,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         email = ${email},
         phone = ${phone},
         status = ${status},
-        notes = ${notes},
-        updated_at = NOW()
+        notes = ${notes}
       WHERE id = ${params.id}
     `
 
