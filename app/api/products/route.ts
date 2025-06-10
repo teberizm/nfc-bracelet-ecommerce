@@ -1,70 +1,24 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { getAllProducts } from "@/lib/database"
 
+// API route'u dynamic olarak işaretle
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Demo ürünleri döndür
-    const products = getDemoProducts()
+    const { searchParams } = new URL(request.url)
+    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const offset = Number.parseInt(searchParams.get("offset") || "0")
+
+    const products = await getAllProducts(limit, offset)
 
     return NextResponse.json({
       success: true,
       products,
+      total: products.length,
     })
   } catch (error) {
-    console.error("Error fetching products:", error)
-
-    // Hata durumunda demo ürünleri döndür
-    return NextResponse.json({
-      success: true,
-      products: getDemoProducts(),
-    })
+    console.error("Ürünler yüklenirken hata:", error)
+    return NextResponse.json({ success: false, error: "Ürünler yüklenemedi" }, { status: 500 })
   }
-}
-
-// Demo ürünler
-function getDemoProducts() {
-  return [
-    {
-      id: "1",
-      name: "NFC Bileklik Premium",
-      description: "Yüksek kaliteli NFC özellikli bileklik",
-      price: 299.99,
-      image: "/placeholder.svg?height=400&width=400",
-      category: "Bileklikler",
-      nfcEnabled: true,
-      stock: 10,
-    },
-    {
-      id: "2",
-      name: "NFC Kolye",
-      description: "Şık tasarımlı NFC özellikli kolye",
-      price: 349.99,
-      image: "/placeholder.svg?height=400&width=400",
-      category: "Kolyeler",
-      nfcEnabled: true,
-      stock: 8,
-    },
-    {
-      id: "3",
-      name: "NFC Yüzük",
-      description: "Modern tasarımlı NFC özellikli yüzük",
-      price: 399.99,
-      image: "/placeholder.svg?height=400&width=400",
-      category: "Yüzükler",
-      nfcEnabled: true,
-      stock: 5,
-    },
-    {
-      id: "4",
-      name: "Özel Tasarım NFC Takı",
-      description: "Kişiselleştirilmiş NFC takı seçenekleri",
-      price: 499.99,
-      image: "/placeholder.svg?height=400&width=400",
-      category: "Özel Tasarım",
-      nfcEnabled: true,
-      stock: 0,
-      isCustomDesign: true,
-    },
-  ]
 }

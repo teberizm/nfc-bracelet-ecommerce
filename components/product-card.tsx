@@ -9,17 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ShoppingCart, Zap, Wand2 } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
 import { toast } from "@/hooks/use-toast"
-
-interface Product {
-  id: string
-  name: string
-  description: string
-  price: number
-  image?: string
-  nfcEnabled?: boolean
-  isCustomDesign?: boolean
-  stock?: number
-}
+import type { Product } from "@/contexts/cart-context"
 
 interface ProductCardProps {
   product: Product
@@ -75,11 +65,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/product/${product.id}`}>
       <Card className="overflow-hidden h-full transition-all duration-200 hover:shadow-lg">
         <div className="aspect-square relative bg-gray-100">
-          <img
-            src={product.image || "/placeholder.svg?height=400&width=400&query=bileklik"}
-            alt={product.name}
-            className="object-cover w-full h-full"
-          />
+          <img src={product.image || "/placeholder.svg"} alt={product.name} className="object-cover w-full h-full" />
           {product.nfcEnabled && (
             <Badge className="absolute top-2 right-2 bg-blue-600">
               <Zap className="h-3 w-3 mr-1" />
