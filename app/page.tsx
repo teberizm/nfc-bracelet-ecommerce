@@ -86,84 +86,72 @@ const customerReviews = [
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch("/api/products?limit=20")
-        if (response.ok) {
-          const products = await response.json()
+        console.log("Ana sayfa: Öne çıkan ürünler çekiliyor...")
 
-          // Kendin Tasarla ürününü ekle
-          const customDesignProduct: Product = {
-            id: "custom-design",
-            name: "Kendin Tasarla",
-            price: 0,
-            image: "/placeholder.svg?height=300&width=300",
-            description:
-              "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
-            nfcEnabled: true,
-            stock: 999,
-            category: "Özel Tasarım",
-            rating: 5,
-            isCustomDesign: true,
-            featured: true,
-          }
+        // Önce öne çıkan ürünleri çek
+        const response = await fetch("/api/products?featured=true&limit=10")
 
-          // Öne çıkan ürünleri filtrele ve kendin tasarla'yı başa ekle
-          const featured = products.filter((p: Product) => p.featured).slice(0, 3)
-          setFeaturedProducts([customDesignProduct, ...featured])
+        if (!response.ok) {
+          throw new Error(`API hatası: ${response.status} ${response.statusText}`)
         }
+
+        const products = await response.json()
+        console.log("Ana sayfa: API'den gelen ürünler:", products)
+
+        if (!Array.isArray(products)) {
+          throw new Error("API'den beklenmeyen veri formatı geldi")
+        }
+
+        // Kendin Tasarla ürününü oluştur
+        const customDesignProduct: Product = {
+          id: "custom-design",
+          name: "Kendin Tasarla",
+          price: 0,
+          image: "/placeholder.svg?height=300&width=300",
+          description:
+            "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
+          nfcEnabled: true,
+          stock: 999,
+          category: "Özel Tasarım",
+          rating: 5,
+          isCustomDesign: true,
+          featured: true,
+        }
+
+        // Öne çıkan ürünleri al (maksimum 3 adet)
+        const featuredFromDB = products.filter((p: Product) => p.featured).slice(0, 3)
+
+        // Kendin Tasarla'yı başa ekle
+        const allFeatured = [customDesignProduct, ...featuredFromDB]
+
+        console.log(`Ana sayfa: ${allFeatured.length} öne çıkan ürün hazırlandı`)
+        setFeaturedProducts(allFeatured)
+        setError(null)
       } catch (error) {
-        console.error("Ürünler yüklenirken hata:", error)
-        // Fallback ürünler
-        const fallbackProducts: Product[] = [
-          {
-            id: "custom-design",
-            name: "Kendin Tasarla",
-            price: 0,
-            image: "/placeholder.svg?height=300&width=300",
-            description:
-              "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
-            nfcEnabled: true,
-            stock: 999,
-            category: "Özel Tasarım",
-            rating: 5,
-            isCustomDesign: true,
-            featured: true,
-          },
-          {
-            id: "1",
-            name: "Premium NFC Deri Bileklik",
-            price: 299,
-            image: "/placeholder.svg?height=300&width=300",
-            description: "Gerçek deri ve premium NFC teknolojisi ile özel anılarınızı paylaşın.",
-            nfcEnabled: true,
-            stock: 15,
-            featured: true,
-          },
-          {
-            id: "2",
-            name: "Spor NFC Silikon Bileklik",
-            price: 199,
-            image: "/placeholder.svg?height=300&width=300",
-            description: "Su geçirmez silikon malzeme ile aktif yaşam tarzınıza uygun.",
-            nfcEnabled: true,
-            stock: 8,
-            featured: true,
-          },
-          {
-            id: "3",
-            name: "Lüks NFC Metal Bileklik",
-            price: 499,
-            image: "/placeholder.svg?height=300&width=300",
-            description: "Paslanmaz çelik ve şık tasarım ile özel günleriniz için.",
-            nfcEnabled: true,
-            stock: 3,
-            featured: true,
-          },
-        ]
-        setFeaturedProducts(fallbackProducts)
+        console.error("Ana sayfa: Ürünler yüklenirken hata:", error)
+        setError("Ürünler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.")
+
+        // Hata durumunda sadece "Kendin Tasarla" ürününü göster
+        const customDesignProduct: Product = {
+          id: "custom-design",
+          name: "Kendin Tasarla",
+          price: 0,
+          image: "/placeholder.svg?height=300&width=300",
+          description:
+            "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
+          nfcEnabled: true,
+          stock: 999,
+          category: "Özel Tasarım",
+          rating: 5,
+          isCustomDesign: true,
+          featured: true,
+        }
+        setFeaturedProducts([customDesignProduct])
       } finally {
         setLoading(false)
       }
@@ -247,6 +235,12 @@ export default function HomePage() {
               <Link href="/products">Tümünü Gör</Link>
             </Button>
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-600">{error}</p>
+            </div>
+          )}
 
           {loading ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
