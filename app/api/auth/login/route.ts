@@ -1,50 +1,46 @@
-import { type NextRequest, NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
+import { NextResponse } from "next/server"
 import { getUserByEmail } from "@/lib/database"
+import { comparePassword, generateToken } from "@/lib/auth"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json()
+    const body = await request.json()
+    const { email, password } = body
 
-    // Kullanıcıyı bul
+    if (!email || !password) {
+      return NextResponse.json({ success: false, message: "Email ve şifre gereklidir" }, { status: 400 })
+    }
+
+    // Kullanıcıyı e-posta ile bul
     const user = await getUserByEmail(email)
     if (!user) {
-      return NextResponse.json({ success: false, error: "Kullanıcı bulunamadı" }, { status: 401 })
+      return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
 
     // Şifreyi kontrol et
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
-    if (!isValidPassword) {
-      return NextResponse.json({ success: false, error: "Geçersiz şifre" }, { status: 401 })
+    const isPasswordValid = await comparePassword(password, user.password_hash)
+    if (!isPasswordValid) {
+      return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
 
     // JWT token oluştur
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" })
+    const token = await generateToken({ userId: user.id })
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
+      message: "Giriş başarılı",
+      token,
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        created_at: user.created_at,
       },
     })
-
-    // Cookie'ye token'ı kaydet
-    response.cookies.set("auth-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 gün
-    })
-
-    return response
   } catch (error) {
-    console.error("Giriş hatası:", error)
-    return NextResponse.json({ success: false, error: "Giriş işlemi başarısız" }, { status: 500 })
+    console.error("Login error:", error)
+    return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
   }
 }

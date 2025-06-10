@@ -1,323 +1,188 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Search, Filter, ArrowUpDown, Eye, Mail, Phone, Calendar, MoreHorizontal, UserPlus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAdmin } from "@/contexts/admin-context"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Search, Filter, RefreshCw, ShoppingBag, Calendar, User } from "lucide-react"
+import Link from "next/link"
 
-// Mock kullanıcı verileri
-const mockUsers = [
-  {
-    id: "1",
-    firstName: "Ahmet",
-    lastName: "Yılmaz",
-    email: "ahmet@example.com",
-    phone: "+90 555 123 4567",
-    createdAt: "2024-01-01T00:00:00Z",
-    lastLogin: "2024-01-15T10:30:00Z",
-    orderCount: 3,
-    totalSpent: 897,
-    status: "active",
-  },
-  {
-    id: "2",
-    firstName: "Ayşe",
-    lastName: "Demir",
-    email: "ayse@example.com",
-    phone: "+90 555 987 6543",
-    createdAt: "2024-01-05T00:00:00Z",
-    lastLogin: "2024-01-16T14:45:00Z",
-    orderCount: 1,
-    totalSpent: 398,
-    status: "active",
-  },
-  {
-    id: "3",
-    firstName: "Mehmet",
-    lastName: "Kaya",
-    email: "mehmet@example.com",
-    phone: "+90 555 456 7890",
-    createdAt: "2024-01-10T00:00:00Z",
-    lastLogin: "2024-01-17T09:15:00Z",
-    orderCount: 2,
-    totalSpent: 648,
-    status: "active",
-  },
-  {
-    id: "4",
-    firstName: "Zeynep",
-    lastName: "Şahin",
-    email: "zeynep@example.com",
-    phone: "+90 555 789 0123",
-    createdAt: "2024-01-12T00:00:00Z",
-    lastLogin: "2024-01-18T16:20:00Z",
-    orderCount: 1,
-    totalSpent: 149,
-    status: "active",
-  },
-  {
-    id: "5",
-    firstName: "Can",
-    lastName: "Öztürk",
-    email: "can@example.com",
-    phone: "+90 555 234 5678",
-    createdAt: "2024-01-15T00:00:00Z",
-    lastLogin: null,
-    orderCount: 0,
-    totalSpent: 0,
-    status: "inactive",
-  },
-]
+interface UserType {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  phone?: string
+  created_at: string
+  total_orders: number
+  total_spent: number
+  is_active: boolean
+}
 
 export default function AdminUsersPage() {
   const { state } = useAdmin()
-  const router = useRouter()
-  const [users, setUsers] = useState(mockUsers)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sortConfig, setSortConfig] = useState<{
-    key: string
-    direction: "asc" | "desc"
-  }>({ key: "createdAt", direction: "desc" })
+  const [users, setUsers] = useState<UserType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filters, setFilters] = useState({
+    search: "",
+    sortBy: "created_at",
+    sortOrder: "desc",
+  })
 
   useEffect(() => {
-    if (!state.isAuthenticated && !state.isLoading) {
-      router.push("/admin/login")
+    if (state.isAuthenticated) {
+      fetchUsers()
     }
-  }, [state.isAuthenticated, state.isLoading, router])
+  }, [state.isAuthenticated, filters])
 
-  // Filtreleme
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone.toLowerCase().includes(searchTerm.toLowerCase())
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem("adminToken")
+      if (!token) return
 
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter
+      const params = new URLSearchParams()
+      if (filters.search) params.append("search", filters.search)
+      params.append("sortBy", filters.sortBy)
+      params.append("sortOrder", filters.sortOrder)
 
-    return matchesSearch && matchesStatus
-  })
+      const response = await fetch(`/api/admin/users?${params}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-  // Sıralama
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
-    const key = sortConfig.key as keyof typeof a
-    if (a[key] < b[key]) {
-      return sortConfig.direction === "asc" ? -1 : 1
+      const data = await response.json()
+      if (data.success) {
+        setUsers(data.users)
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
+    } finally {
+      setLoading(false)
     }
-    if (a[key] > b[key]) {
-      return sortConfig.direction === "asc" ? 1 : -1
-    }
-    return 0
-  })
-
-  // Sıralama değiştirme
-  const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc"
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc"
-    }
-    setSortConfig({ key, direction })
   }
 
-  if (state.isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">Yükleniyor...</div>
+        <RefreshCw className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Kullanıcılar</h1>
-          <p className="text-gray-600">Tüm kullanıcıları yönetin</p>
-        </div>
-        <Button asChild>
-          <Link href="/admin/users/new">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Yeni Kullanıcı
-          </Link>
+        <h1 className="text-3xl font-bold">Kullanıcı Yönetimi</h1>
+        <Button onClick={fetchUsers} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Yenile
         </Button>
       </div>
 
       {/* Filtreler */}
       <Card>
-        <CardContent className="p-6">
-          <div className="grid md:grid-cols-3 gap-4">
-            {/* Arama */}
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filtreler
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Kullanıcı ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Ad, soyad, email ara..."
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 className="pl-10"
               />
             </div>
-
-            {/* Durum Filtresi */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={filters.sortBy} onValueChange={(value) => setFilters({ ...filters, sortBy: value })}>
               <SelectTrigger>
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Durum Filtresi" />
-                </div>
+                <SelectValue placeholder="Sırala" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tüm Kullanıcılar</SelectItem>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Pasif</SelectItem>
+                <SelectItem value="created_at">Kayıt Tarihi</SelectItem>
+                <SelectItem value="total_spent">Toplam Harcama</SelectItem>
+                <SelectItem value="total_orders">Sipariş Sayısı</SelectItem>
+                <SelectItem value="first_name">Ad</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.sortOrder} onValueChange={(value) => setFilters({ ...filters, sortOrder: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sıralama" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">Azalan</SelectItem>
+                <SelectItem value="asc">Artan</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Kullanıcı Tablosu */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Kullanıcılar ({filteredUsers.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("firstName")}>
-                    <div className="flex items-center gap-1">
-                      Kullanıcı
-                      <ArrowUpDown className="h-3 w-3" />
+      {/* Kullanıcı Listesi */}
+      <div className="grid gap-4">
+        {users.map((user) => (
+          <Card key={user.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">
+                        {user.first_name} {user.last_name}
+                      </h3>
+                      {user.is_active ? (
+                        <Badge variant="default">Aktif</Badge>
+                      ) : (
+                        <Badge variant="secondary">Pasif</Badge>
+                      )}
                     </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("email")}>
+                    <p className="text-sm text-gray-600">{user.email}</p>
+                    {user.phone && <p className="text-sm text-gray-500">{user.phone}</p>}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
-                      İletişim
-                      <ArrowUpDown className="h-3 w-3" />
+                      <ShoppingBag className="h-4 w-4" />
+                      <span>{user.total_orders} sipariş</span>
                     </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("createdAt")}>
                     <div className="flex items-center gap-1">
-                      Kayıt Tarihi
-                      <ArrowUpDown className="h-3 w-3" />
+                      <span className="font-medium">{user.total_spent.toLocaleString("tr-TR")} ₺</span>
                     </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("orderCount")}>
                     <div className="flex items-center gap-1">
-                      Siparişler
-                      <ArrowUpDown className="h-3 w-3" />
+                      <Calendar className="h-4 w-4" />
+                      <span>{new Date(user.created_at).toLocaleDateString("tr-TR")}</span>
                     </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("totalSpent")}>
-                    <div className="flex items-center gap-1">
-                      Toplam Harcama
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("status")}>
-                    <div className="flex items-center gap-1">
-                      Durum
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                      Kullanıcı bulunamadı
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src="/placeholder.svg" />
-                            <AvatarFallback>
-                              {user.firstName[0]}
-                              {user.lastName[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">
-                              {user.firstName} {user.lastName}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3 text-gray-500" />
-                            <span className="text-sm">{user.email}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-gray-500" />
-                            <span className="text-sm">{user.phone}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-gray-500" />
-                          <span className="text-sm">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.orderCount}</TableCell>
-                      <TableCell>₺{user.totalSpent.toLocaleString("tr-TR")}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            user.status === "active"
-                              ? "bg-green-100 text-green-800 border-green-200"
-                              : "bg-gray-100 text-gray-800 border-gray-200"
-                          }
-                        >
-                          {user.status === "active" ? "Aktif" : "Pasif"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/admin/users/${user.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Detayları Görüntüle
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </div>
+                  <Button size="sm" className="mt-2" asChild>
+                    <Link href={`/admin/users/${user.id}`}>Detay</Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {users.length === 0 && (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <p className="text-gray-500">Henüz kullanıcı bulunmuyor.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

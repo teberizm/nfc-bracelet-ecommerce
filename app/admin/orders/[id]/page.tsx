@@ -2,502 +2,317 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
-import {
-  ArrowLeft,
-  Clock,
-  CheckCircle,
-  Truck,
-  XCircle,
-  AlertCircle,
-  MessageCircle,
-  User,
-  MapPin,
-  CreditCard,
-  FileText,
-  Zap,
-  Edit,
-  Save,
-  X,
-} from "lucide-react"
+import { useAdmin } from "@/contexts/admin-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useAdmin } from "@/contexts/admin-context"
-import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { ArrowLeft, MessageCircle, Package, Truck, CheckCircle, XCircle, RefreshCw } from "lucide-react"
+import Link from "next/link"
 
-// Mock sipariş verileri
-const mockOrders = [
-  {
-    id: "order-1",
-    orderNumber: "ORD-2024-001",
-    customerName: "Ahmet Yılmaz",
-    customerEmail: "ahmet@example.com",
-    customerPhone: "+90 555 123 4567",
-    date: "2024-01-15T10:30:00Z",
-    total: 299,
-    subtotal: 299,
-    tax: 0,
-    shipping: 0,
-    discount: 0,
-    status: "pending",
-    paymentStatus: "paid",
-    paymentMethod: "Kredi Kartı",
-    trackingNumber: "",
-    notes: "",
-    items: [
-      {
-        id: "item-1",
-        productId: "1",
-        productName: "Premium NFC Deri Bileklik",
-        quantity: 1,
-        price: 299,
-        image: "/placeholder.svg?height=100&width=100",
-        nfcEnabled: true,
-        nfcContentUploaded: false,
-        themeSelected: false,
-      },
-    ],
-    shippingAddress: {
-      name: "Ahmet Yılmaz",
-      street: "Atatürk Caddesi No: 123",
-      city: "İstanbul",
-      state: "İstanbul",
-      zipCode: "34000",
-      country: "Türkiye",
-    },
-    billingAddress: {
-      name: "Ahmet Yılmaz",
-      street: "Atatürk Caddesi No: 123",
-      city: "İstanbul",
-      state: "İstanbul",
-      zipCode: "34000",
-      country: "Türkiye",
-    },
-    statusHistory: [
-      {
-        status: "pending",
-        date: "2024-01-15T10:30:00Z",
-        note: "Sipariş alındı",
-      },
-    ],
-  },
-]
+interface OrderDetail {
+  id: string
+  order_number: string
+  user_email: string
+  user_phone: string
+  first_name: string
+  last_name: string
+  total_amount: number
+  subtotal: number
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  created_at: string
+  updated_at: string
+  shipping_address: any
+  billing_address: any
+  tracking_number?: string
+  items: Array<{
+    id: string
+    product_name: string
+    product_image: string
+    quantity: number
+    unit_price: number
+    total_price: number
+    nfc_enabled: boolean
+  }>
+  statusHistory?: Array<{
+    id: string
+    status: string
+    note?: string
+    created_at: string
+    admin_id: string
+  }>
+}
 
-export default function OrderDetailPage() {
+const statusColors = {
+  pending: "bg-yellow-100 text-yellow-800",
+  processing: "bg-blue-100 text-blue-800",
+  shipped: "bg-purple-100 text-purple-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+}
+
+const statusLabels = {
+  pending: "Beklemede",
+  processing: "İşleniyor",
+  shipped: "Kargoda",
+  delivered: "Teslim Edildi",
+  cancelled: "İptal Edildi",
+}
+
+const statusIcons = {
+  pending: Package,
+  processing: RefreshCw,
+  shipped: Truck,
+  delivered: CheckCircle,
+  cancelled: XCircle,
+}
+
+export default function AdminOrderDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { state } = useAdmin()
-  const [order, setOrder] = useState<any>(null)
-  const [isEditingStatus, setIsEditingStatus] = useState(false)
+  const [order, setOrder] = useState<OrderDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState("")
-  const [statusNote, setStatusNote] = useState("")
-  const [isEditingTracking, setIsEditingTracking] = useState(false)
+  const [note, setNote] = useState("")
   const [trackingNumber, setTrackingNumber] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!state.isAuthenticated && !state.isLoading) {
-      router.push("/admin/login")
+    if (state.isAuthenticated && params.id) {
+      fetchOrderDetail()
     }
-  }, [state.isAuthenticated, state.isLoading, router])
+  }, [state.isAuthenticated, params.id])
 
-  useEffect(() => {
-    // Sipariş verilerini yükle
-    const loadOrder = async () => {
-      setIsLoading(true)
-      // API call simulation
-      await new Promise((resolve) => setTimeout(resolve, 500))
+  const fetchOrderDetail = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem("adminToken")
+      if (!token) return
 
-      const orderId = params.id
-      const foundOrder = mockOrders.find((o) => o.id === orderId)
+      const response = await fetch(`/api/admin/orders/${params.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-      if (foundOrder) {
-        setOrder(foundOrder)
-        setNewStatus(foundOrder.status)
-        setTrackingNumber(foundOrder.trackingNumber)
+      const data = await response.json()
+      if (data.success) {
+        setOrder(data.order)
+        setNewStatus(data.order.status)
+        setTrackingNumber(data.order.tracking_number || "")
       }
-
-      setIsLoading(false)
+    } catch (error) {
+      console.error("Error fetching order detail:", error)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    loadOrder()
-  }, [params.id])
+  const handleStatusUpdate = async () => {
+    if (!order || !newStatus) return
 
-  if (isLoading) {
+    try {
+      setUpdating(true)
+      const token = localStorage.getItem("adminToken")
+      if (!token) return
+
+      const response = await fetch(`/api/admin/orders/${order.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          note,
+          trackingNumber: trackingNumber || undefined,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setNote("")
+        fetchOrderDetail()
+      }
+    } catch (error) {
+      console.error("Error updating order:", error)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const getWhatsAppUrl = (phone: string, orderNumber: string) => {
+    const message = `Merhaba! ${orderNumber} numaralı siparişiniz hakkında bilgi vermek istiyorum.`
+    return `https://wa.me/90${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`
+  }
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">Yükleniyor...</div>
+        <RefreshCw className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   if (!order) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Sipariş Bulunamadı</h2>
-          <p className="text-gray-500 mb-4">İstediğiniz sipariş bulunamadı veya erişim izniniz yok.</p>
-          <Button asChild>
-            <Link href="/admin/orders">Siparişlere Dön</Link>
-          </Button>
-        </div>
+      <div className="text-center py-12">
+        <p className="text-gray-500">Sipariş bulunamadı.</p>
+        <Button asChild className="mt-4">
+          <Link href="/admin/orders">Siparişlere Dön</Link>
+        </Button>
       </div>
     )
   }
 
-  // Sipariş durumu güncelleme
-  const updateOrderStatus = () => {
-    if (newStatus === order.status) {
-      setIsEditingStatus(false)
-      return
-    }
-
-    const updatedOrder = {
-      ...order,
-      status: newStatus,
-      statusHistory: [
-        {
-          status: newStatus,
-          date: new Date().toISOString(),
-          note: statusNote,
-        },
-        ...order.statusHistory,
-      ],
-    }
-
-    setOrder(updatedOrder)
-    setIsEditingStatus(false)
-    setStatusNote("")
-
-    toast.success(`Sipariş durumu "${getStatusText(newStatus)}" olarak güncellendi.`)
-  }
-
-  // Takip numarası güncelleme
-  const updateTrackingNumber = () => {
-    const updatedOrder = {
-      ...order,
-      trackingNumber,
-    }
-
-    setOrder(updatedOrder)
-    setIsEditingTracking(false)
-
-    toast.success("Kargo takip numarası başarıyla güncellendi.")
-  }
-
-  // WhatsApp'a yönlendirme
-  const openWhatsApp = () => {
-    const formattedPhone = order.customerPhone.replace(/\s+/g, "")
-    const message = `Merhaba ${order.customerName}, ${order.orderNumber} numaralı siparişiniz hakkında bilgi vermek istiyorum.`
-    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, "_blank")
-  }
-
-  // Durum metni
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Onay Bekliyor"
-      case "processing":
-        return "İşleniyor"
-      case "shipped":
-        return "Kargoya Verildi"
-      case "completed":
-        return "Tamamlandı"
-      case "failed":
-        return "Başarısız"
-      default:
-        return status
-    }
-  }
-
-  // Durum badge'i
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return (
-          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-            <Clock className="h-3 w-3 mr-1" />
-            Onay Bekliyor
-          </Badge>
-        )
-      case "processing":
-        return (
-          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-            <AlertCircle className="h-3 w-3 mr-1" />
-            İşleniyor
-          </Badge>
-        )
-      case "shipped":
-        return (
-          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-            <Truck className="h-3 w-3 mr-1" />
-            Kargoya Verildi
-          </Badge>
-        )
-      case "completed":
-        return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Tamamlandı
-          </Badge>
-        )
-      case "failed":
-        return (
-          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-            <XCircle className="h-3 w-3 mr-1" />
-            Başarısız
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
+  const StatusIcon = statusIcons[order.status]
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/admin/orders">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Sipariş #{order.orderNumber}</h1>
-            <p className="text-gray-600">
-              {new Date(order.date).toLocaleDateString("tr-TR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={openWhatsApp}>
-            <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
-            WhatsApp
-          </Button>
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/orders">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Geri
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Sipariş #{order.order_number}</h1>
+          <p className="text-gray-600">
+            {new Date(order.created_at).toLocaleDateString("tr-TR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sol Kolon - Sipariş Detayları */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Durum */}
+          {/* Sipariş Durumu */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Sipariş Durumu</CardTitle>
-                {!isEditingStatus && (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditingStatus(true)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Durumu Güncelle
-                  </Button>
-                )}
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <StatusIcon className="h-5 w-5" />
+                Sipariş Durumu
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              {isEditingStatus ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Yeni Durum</Label>
-                    <Select value={newStatus} onValueChange={setNewStatus}>
-                      <SelectTrigger id="status">
-                        <SelectValue placeholder="Durum seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Onay Bekliyor</SelectItem>
-                        <SelectItem value="processing">İşleniyor</SelectItem>
-                        <SelectItem value="shipped">Kargoya Verildi</SelectItem>
-                        <SelectItem value="completed">Tamamlandı</SelectItem>
-                        <SelectItem value="failed">Başarısız</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge className={statusColors[order.status]}>{statusLabels[order.status]}</Badge>
+                {order.tracking_number && <Badge variant="outline">Takip No: {order.tracking_number}</Badge>}
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="statusNote">Not (Opsiyonel)</Label>
-                    <Textarea
-                      id="statusNote"
-                      placeholder="Durum değişikliği hakkında not ekleyin..."
-                      value={statusNote}
-                      onChange={(e) => setStatusNote(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button onClick={updateOrderStatus}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Kaydet
-                    </Button>
-                    <Button variant="outline" onClick={() => setIsEditingStatus(false)}>
-                      <X className="h-4 w-4 mr-2" />
-                      İptal
-                    </Button>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Yeni Durum</label>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Beklemede</SelectItem>
+                      <SelectItem value="processing">İşleniyor</SelectItem>
+                      <SelectItem value="shipped">Kargoda</SelectItem>
+                      <SelectItem value="delivered">Teslim Edildi</SelectItem>
+                      <SelectItem value="cancelled">İptal Edildi</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">{getStatusBadge(order.status)}</div>
-                  </div>
-
-                  {order.status === "shipped" && (
-                    <div className="pt-4 border-t">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">Kargo Takip Numarası</p>
-                          {isEditingTracking ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={trackingNumber}
-                                onChange={(e) => setTrackingNumber(e.target.value)}
-                                placeholder="Takip numarası girin"
-                                className="max-w-xs"
-                              />
-                              <Button size="sm" onClick={updateTrackingNumber}>
-                                <Save className="h-3 w-3 mr-1" />
-                                Kaydet
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setIsEditingTracking(false)}>
-                                <X className="h-3 w-3 mr-1" />
-                                İptal
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <p className="text-gray-600">{order.trackingNumber || "Takip numarası girilmemiş"}</p>
-                              <Button size="sm" variant="ghost" onClick={() => setIsEditingTracking(true)}>
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <label className="text-sm font-medium">Kargo Takip No</label>
+                  <Input
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="Takip numarası girin"
+                  />
                 </div>
-              )}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Not</label>
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Durum değişikliği için not ekleyin"
+                  rows={3}
+                />
+              </div>
+
+              <Button onClick={handleStatusUpdate} disabled={updating || newStatus === order.status}>
+                {updating ? "Güncelleniyor..." : "Durumu Güncelle"}
+              </Button>
             </CardContent>
           </Card>
 
-          {/* Ürünler */}
+          {/* Sipariş Öğeleri */}
           <Card>
             <CardHeader>
-              <CardTitle>Sipariş Ürünleri</CardTitle>
+              <CardTitle>Sipariş Öğeleri</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {order.items.map((item: any) => (
-                  <div key={item.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.productName}
-                      width={60}
-                      height={60}
-                      className="rounded-md object-cover"
+                {order.items.map((item) => (
+                  <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <img
+                      src={item.product_image || "/placeholder.svg"}
+                      alt={item.product_name}
+                      className="w-16 h-16 object-cover rounded"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium">{item.productName}</h3>
-                        <p className="font-bold">₺{(item.price * item.quantity).toLocaleString("tr-TR")}</p>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-sm text-gray-600">
-                          {item.quantity} adet × ₺{item.price.toLocaleString("tr-TR")}
-                        </p>
-                        {item.nfcEnabled && (
-                          <Badge variant="secondary" className="flex items-center gap-1">
-                            <Zap className="h-3 w-3" />
-                            NFC Özellikli
-                          </Badge>
-                        )}
-                      </div>
-                      {item.nfcEnabled && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge
-                            variant={item.nfcContentUploaded ? "outline" : "secondary"}
-                            className={item.nfcContentUploaded ? "bg-green-100 text-green-800 border-green-200" : ""}
-                          >
-                            {item.nfcContentUploaded ? (
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                            ) : (
-                              <Clock className="h-3 w-3 mr-1" />
-                            )}
-                            {item.nfcContentUploaded ? "İçerik Yüklendi" : "İçerik Bekleniyor"}
-                          </Badge>
-                          <Badge
-                            variant={item.themeSelected ? "outline" : "secondary"}
-                            className={item.themeSelected ? "bg-green-100 text-green-800 border-green-200" : ""}
-                          >
-                            {item.themeSelected ? (
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                            ) : (
-                              <Clock className="h-3 w-3 mr-1" />
-                            )}
-                            {item.themeSelected ? "Tema Seçildi" : "Tema Bekleniyor"}
-                          </Badge>
-                        </div>
-                      )}
+                      <h4 className="font-medium">{item.product_name}</h4>
+                      <p className="text-sm text-gray-600">
+                        {item.quantity} x {item.unit_price.toLocaleString("tr-TR")} ₺
+                      </p>
+                      {item.nfc_enabled && <Badge variant="secondary">NFC Etkin</Badge>}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{item.total_price.toLocaleString("tr-TR")} ₺</p>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <Separator className="my-4" />
+
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Ara Toplam:</span>
+                  <span>{order.subtotal.toLocaleString("tr-TR")} ₺</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Toplam:</span>
+                  <span>{order.total_amount.toLocaleString("tr-TR")} ₺</span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Durum Geçmişi */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Durum Geçmişi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {order.statusHistory.map((history: any, index: number) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        history.status === "pending"
-                          ? "bg-yellow-100 text-yellow-600"
-                          : history.status === "processing"
-                            ? "bg-blue-100 text-blue-600"
-                            : history.status === "shipped"
-                              ? "bg-purple-100 text-purple-600"
-                              : history.status === "completed"
-                                ? "bg-green-100 text-green-600"
-                                : "bg-red-100 text-red-600"
-                      }`}
-                    >
-                      {history.status === "pending" ? (
-                        <Clock className="h-4 w-4" />
-                      ) : history.status === "processing" ? (
-                        <AlertCircle className="h-4 w-4" />
-                      ) : history.status === "shipped" ? (
-                        <Truck className="h-4 w-4" />
-                      ) : history.status === "completed" ? (
-                        <CheckCircle className="h-4 w-4" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium">{getStatusText(history.status)}</p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(history.date).toLocaleDateString("tr-TR", {
+          {order.statusHistory && order.statusHistory.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Durum Geçmişi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {order.statusHistory.map((history) => (
+                    <div key={history.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <Badge className={statusColors[history.status as keyof typeof statusColors]}>
+                        {statusLabels[history.status as keyof typeof statusLabels]}
+                      </Badge>
+                      <div className="flex-1">
+                        {history.note && <p className="text-sm">{history.note}</p>}
+                        <p className="text-xs text-gray-500">
+                          {new Date(history.created_at).toLocaleDateString("tr-TR", {
                             year: "numeric",
                             month: "short",
                             day: "numeric",
@@ -506,34 +321,39 @@ export default function OrderDetailPage() {
                           })}
                         </p>
                       </div>
-                      {history.note && <p className="text-sm text-gray-600 mt-1">{history.note}</p>}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Sağ Kolon - Müşteri ve Ödeme Bilgileri */}
-        <div className="lg:col-span-1 space-y-6">
+        {/* Sağ Kolon - Müşteri Bilgileri */}
+        <div className="space-y-6">
           {/* Müşteri Bilgileri */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Müşteri Bilgileri
-              </CardTitle>
+              <CardTitle>Müşteri Bilgileri</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="font-medium text-lg">{order.customerName}</p>
-                <p className="text-gray-600">{order.customerEmail}</p>
-                <p className="text-gray-600">{order.customerPhone}</p>
+                <h4 className="font-medium">
+                  {order.first_name} {order.last_name}
+                </h4>
+                <p className="text-sm text-gray-600">{order.user_email}</p>
+                {order.user_phone && <p className="text-sm text-gray-600">{order.user_phone}</p>}
               </div>
-              <Button variant="outline" className="w-full" onClick={openWhatsApp}>
-                <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
-                WhatsApp ile İletişim
+
+              <Button size="sm" className="w-full" asChild>
+                <a
+                  href={getWhatsAppUrl(order.user_phone || "5551234567", order.order_number)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  WhatsApp ile İletişim
+                </a>
               </Button>
             </CardContent>
           </Card>
@@ -541,100 +361,40 @@ export default function OrderDetailPage() {
           {/* Teslimat Adresi */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Teslimat Adresi
-              </CardTitle>
+              <CardTitle>Teslimat Adresi</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-1">
-                <p className="font-medium">{order.shippingAddress.name}</p>
-                <p>{order.shippingAddress.street}</p>
-                <p>
-                  {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}
-                </p>
-                <p>{order.shippingAddress.country}</p>
-              </div>
+              {order.shipping_address && (
+                <div className="text-sm space-y-1">
+                  <p>{order.shipping_address.street}</p>
+                  <p>
+                    {order.shipping_address.city}, {order.shipping_address.state}
+                  </p>
+                  <p>{order.shipping_address.zipCode}</p>
+                  <p>{order.shipping_address.country}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Ödeme Bilgileri */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Ödeme Bilgileri
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span>Ödeme Yöntemi:</span>
-                  <span className="font-medium">{order.paymentMethod}</span>
+          {/* Fatura Adresi */}
+          {order.billing_address && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Fatura Adresi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm space-y-1">
+                  <p>{order.billing_address.street}</p>
+                  <p>
+                    {order.billing_address.city}, {order.billing_address.state}
+                  </p>
+                  <p>{order.billing_address.zipCode}</p>
+                  <p>{order.billing_address.country}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Ödeme Durumu:</span>
-                  <Badge
-                    variant="outline"
-                    className={
-                      order.paymentStatus === "paid"
-                        ? "bg-green-100 text-green-800 border-green-200"
-                        : order.paymentStatus === "pending"
-                          ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                          : "bg-red-100 text-red-800 border-red-200"
-                    }
-                  >
-                    {order.paymentStatus === "paid"
-                      ? "Ödendi"
-                      : order.paymentStatus === "pending"
-                        ? "Bekliyor"
-                        : "Başarısız"}
-                  </Badge>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span>Ara Toplam:</span>
-                  <span>₺{order.subtotal.toLocaleString("tr-TR")}</span>
-                </div>
-                {order.tax > 0 && (
-                  <div className="flex justify-between">
-                    <span>KDV:</span>
-                    <span>₺{order.tax.toLocaleString("tr-TR")}</span>
-                  </div>
-                )}
-                {order.shipping > 0 && (
-                  <div className="flex justify-between">
-                    <span>Kargo:</span>
-                    <span>₺{order.shipping.toLocaleString("tr-TR")}</span>
-                  </div>
-                )}
-                {order.discount > 0 && (
-                  <div className="flex justify-between">
-                    <span>İndirim:</span>
-                    <span>-₺{order.discount.toLocaleString("tr-TR")}</span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between font-bold">
-                  <span>Toplam:</span>
-                  <span>₺{order.total.toLocaleString("tr-TR")}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notlar */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Notlar
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {order.notes ? <p>{order.notes}</p> : <p className="text-gray-500 italic">Not eklenmemiş</p>}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

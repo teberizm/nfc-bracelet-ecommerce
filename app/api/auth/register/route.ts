@@ -1,37 +1,52 @@
-import { type NextRequest, NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import { v4 as uuidv4 } from "uuid"
-import { createUser } from "@/lib/database"
+import { NextResponse } from "next/server"
+import { getUserByEmail, createUser } from "@/lib/database"
+import { hashPassword, generateToken } from "@/lib/auth"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const { email, password, firstName, lastName, phone } = await request.json()
+    const body = await request.json()
+    const { email, password, first_name, last_name, phone } = body
 
-    // Şifreyi hash'le
-    const passwordHash = await bcrypt.hash(password, 12)
+    if (!email || !password || !first_name || !last_name) {
+      return NextResponse.json({ success: false, message: "Tüm gerekli alanları doldurun" }, { status: 400 })
+    }
 
-    // Kullanıcı oluştur
-    const userId = uuidv4()
-    const user = await createUser({
-      id: userId,
+    // E-posta adresi zaten kullanılıyor mu kontrol et
+    const existingUser = await getUserByEmail(email)
+    if (existingUser) {
+      return NextResponse.json({ success: false, message: "Bu e-posta adresi zaten kullanılıyor" }, { status: 409 })
+    }
+
+    // Şifreyi hashle
+    const password_hash = await hashPassword(password)
+
+    // Kullanıcıyı oluştur
+    const newUser = await createUser({
       email,
-      password_hash: passwordHash,
-      first_name: firstName,
-      last_name: lastName,
-      phone,
+      password_hash,
+      first_name,
+      last_name,
+      phone: phone || null,
     })
+
+    // JWT token oluştur
+    const token = await generateToken({ userId: newUser.id })
 
     return NextResponse.json({
       success: true,
+      message: "Kayıt başarılı",
+      token,
       user: {
-        id: user[0].id,
-        email: user[0].email,
-        firstName: user[0].first_name,
-        lastName: user[0].last_name,
+        id: newUser.id,
+        email: newUser.email,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        phone: newUser.phone,
+        created_at: newUser.created_at,
       },
     })
   } catch (error) {
-    console.error("Kayıt hatası:", error)
-    return NextResponse.json({ success: false, error: "Kayıt işlemi başarısız" }, { status: 500 })
+    console.error("Register error:", error)
+    return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
   }
 }

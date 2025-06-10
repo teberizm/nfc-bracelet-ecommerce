@@ -1,342 +1,156 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
-import { Search, Filter, ArrowUpDown, Eye, Edit, MoreHorizontal, Plus, Zap } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { useAdmin } from "@/contexts/admin-context"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Search, RefreshCw, Package, Plus } from "lucide-react"
+import Link from "next/link"
 
-// Mock ürün verileri
-const mockProducts = [
-  {
-    id: "1",
-    name: "Premium NFC Deri Bileklik",
-    description: "Gerçek deri ve NFC teknolojisi ile üretilmiş premium bileklik",
-    price: 299,
-    category: "Premium",
-    stock: 25,
-    nfcEnabled: true,
-    status: "active",
-    image: "/placeholder.svg?height=100&width=100",
-    createdAt: "2024-01-01T00:00:00Z",
-    sales: 45,
-  },
-  {
-    id: "2",
-    name: "Spor NFC Silikon Bileklik",
-    description: "Su geçirmez silikon malzeme ile üretilmiş spor bileklik",
-    price: 199,
-    category: "Spor",
-    stock: 50,
-    nfcEnabled: true,
-    status: "active",
-    image: "/placeholder.svg?height=100&width=100",
-    createdAt: "2024-01-02T00:00:00Z",
-    sales: 78,
-  },
-  {
-    id: "3",
-    name: "Lüks NFC Metal Bileklik",
-    description: "Paslanmaz çelik ve NFC teknolojisi ile üretilmiş lüks bileklik",
-    price: 499,
-    category: "Lüks",
-    stock: 15,
-    nfcEnabled: true,
-    status: "active",
-    image: "/placeholder.svg?height=100&width=100",
-    createdAt: "2024-01-03T00:00:00Z",
-    sales: 23,
-  },
-  {
-    id: "4",
-    name: "Klasik Deri Bileklik",
-    description: "Geleneksel deri işçiliği ile üretilmiş klasik bileklik",
-    price: 149,
-    category: "Klasik",
-    stock: 30,
-    nfcEnabled: false,
-    status: "active",
-    image: "/placeholder.svg?height=100&width=100",
-    createdAt: "2024-01-04T00:00:00Z",
-    sales: 12,
-  },
-]
+interface Product {
+  id: string
+  name: string
+  slug: string
+  price: number
+  stock: number
+  category_name: string
+  primary_image: string
+  is_active: boolean
+  nfc_enabled: boolean
+  created_at: string
+}
 
 export default function AdminProductsPage() {
   const { state } = useAdmin()
-  const router = useRouter()
-  const [products, setProducts] = useState(mockProducts)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sortConfig, setSortConfig] = useState<{
-    key: string
-    direction: "asc" | "desc"
-  }>({ key: "createdAt", direction: "desc" })
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
-    if (!state.isAuthenticated && !state.isLoading) {
-      router.push("/admin/login")
+    if (state.isAuthenticated) {
+      fetchProducts()
     }
-  }, [state.isAuthenticated, state.isLoading, router])
+  }, [state.isAuthenticated])
 
-  // Filtreleme
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const fetchProducts = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem("adminToken")
+      if (!token) return
 
-    const matchesCategory = categoryFilter === "all" || product.category === categoryFilter
-    const matchesStatus = statusFilter === "all" || product.status === statusFilter
+      const response = await fetch("/api/admin/products", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-    return matchesSearch && matchesCategory && matchesStatus
-  })
-
-  // Sıralama
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const key = sortConfig.key as keyof typeof a
-    if (a[key] < b[key]) {
-      return sortConfig.direction === "asc" ? -1 : 1
+      const data = await response.json()
+      if (data.success) {
+        setProducts(data.products)
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error)
+    } finally {
+      setLoading(false)
     }
-    if (a[key] > b[key]) {
-      return sortConfig.direction === "asc" ? 1 : -1
-    }
-    return 0
-  })
-
-  // Sıralama değiştirme
-  const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc"
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc"
-    }
-    setSortConfig({ key, direction })
   }
 
-  if (state.isLoading) {
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(search.toLowerCase()) ||
+      product.category_name.toLowerCase().includes(search.toLowerCase()),
+  )
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">Yükleniyor...</div>
+        <RefreshCw className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Ürünler</h1>
-          <p className="text-gray-600">Tüm ürünleri yönetin</p>
-        </div>
-        <Button asChild>
-          <Link href="/admin/products/new">
+        <h1 className="text-3xl font-bold">Ürün Yönetimi</h1>
+        <div className="flex gap-2">
+          <Button onClick={fetchProducts} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Yenile
+          </Button>
+          <Button>
             <Plus className="h-4 w-4 mr-2" />
             Yeni Ürün
-          </Link>
-        </Button>
+          </Button>
+        </div>
       </div>
 
-      {/* Filtreler */}
+      {/* Arama */}
       <Card>
-        <CardContent className="p-6">
-          <div className="grid md:grid-cols-4 gap-4">
-            {/* Arama */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Ürün ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Kategori Filtresi */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Kategori" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Kategoriler</SelectItem>
-                <SelectItem value="Premium">Premium</SelectItem>
-                <SelectItem value="Spor">Spor</SelectItem>
-                <SelectItem value="Lüks">Lüks</SelectItem>
-                <SelectItem value="Klasik">Klasik</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Durum Filtresi */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Durum" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Durumlar</SelectItem>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Pasif</SelectItem>
-              </SelectContent>
-            </Select>
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Ürün adı veya kategori ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Ürün Tablosu */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ürünler ({filteredProducts.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("name")}>
-                    <div className="flex items-center gap-1">
-                      Ürün
-                      <ArrowUpDown className="h-3 w-3" />
+      {/* Ürün Listesi */}
+      <div className="grid gap-4">
+        {filteredProducts.map((product) => (
+          <Card key={product.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={product.primary_image || "/placeholder.svg"}
+                    alt={product.name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{product.name}</h3>
+                      {product.is_active ? (
+                        <Badge variant="default">Aktif</Badge>
+                      ) : (
+                        <Badge variant="secondary">Pasif</Badge>
+                      )}
+                      {product.nfc_enabled && <Badge variant="outline">NFC</Badge>}
                     </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("category")}>
-                    <div className="flex items-center gap-1">
-                      Kategori
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("price")}>
-                    <div className="flex items-center gap-1">
-                      Fiyat
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("stock")}>
-                    <div className="flex items-center gap-1">
-                      Stok
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("sales")}>
-                    <div className="flex items-center gap-1">
-                      Satış
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => requestSort("status")}>
-                    <div className="flex items-center gap-1">
-                      Durum
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                      Ürün bulunamadı
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Image
-                            src={product.image || "/placeholder.svg"}
-                            alt={product.name}
-                            width={50}
-                            height={50}
-                            className="rounded-md object-cover"
-                          />
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-gray-500 max-w-xs truncate">{product.description}</p>
-                            {product.nfcEnabled && (
-                              <Badge variant="secondary" className="mt-1">
-                                <Zap className="h-3 w-3 mr-1" />
-                                NFC
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{product.category}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">₺{product.price.toLocaleString("tr-TR")}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            product.stock > 20
-                              ? "bg-green-100 text-green-800 border-green-200"
-                              : product.stock > 5
-                                ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                                : "bg-red-100 text-red-800 border-red-200"
-                          }
-                        >
-                          {product.stock} adet
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{product.sales} adet</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            product.status === "active"
-                              ? "bg-green-100 text-green-800 border-green-200"
-                              : "bg-gray-100 text-gray-800 border-gray-200"
-                          }
-                        >
-                          {product.status === "active" ? "Aktif" : "Pasif"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/admin/products/${product.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Detayları Görüntüle
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/admin/products/${product.id}/edit`}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Düzenle
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                    <p className="text-sm text-gray-600">{product.category_name}</p>
+                    <p className="text-sm text-gray-500">Stok: {product.stock} adet</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold">{product.price.toLocaleString("tr-TR")} ₺</p>
+                  <p className="text-sm text-gray-500">{new Date(product.created_at).toLocaleDateString("tr-TR")}</p>
+                  <Button size="sm" className="mt-2" asChild>
+                    <Link href={`/admin/products/${product.id}`}>Düzenle</Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredProducts.length === 0 && (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">
+              {search ? "Arama kriterlerine uygun ürün bulunamadı." : "Henüz ürün bulunmuyor."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

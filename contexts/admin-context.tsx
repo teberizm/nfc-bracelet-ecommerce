@@ -42,6 +42,7 @@ const AdminContext = createContext<{
   dispatch: React.Dispatch<AdminAction>
   loginAdmin: (email: string, password: string) => Promise<boolean>
   logoutAdmin: () => void
+  fetchAdminStats: () => Promise<void>
 } | null>(null)
 
 function adminReducer(state: AdminState, action: AdminAction): AdminState {
@@ -76,30 +77,6 @@ function adminReducer(state: AdminState, action: AdminAction): AdminState {
   }
 }
 
-// Mock admin verisi
-const mockAdmins: Admin[] = [
-  {
-    id: "admin-1",
-    email: "admin@nfcbileklik.com",
-    name: "Admin User",
-    role: "super_admin",
-    createdAt: "2024-01-01T00:00:00Z",
-    lastLogin: "2024-01-15T10:30:00Z",
-  },
-]
-
-// Mock istatistikler
-const mockStats: AdminStats = {
-  totalUsers: 147,
-  totalOrders: 89,
-  totalRevenue: 26750,
-  pendingOrders: 12,
-  deliveredOrders: 67,
-  totalProducts: 4,
-  activeNFCContent: 45,
-  monthlyGrowth: 15.7,
-}
-
 export function AdminProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(adminReducer, {
     admin: null,
@@ -109,48 +86,140 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
-    const savedAdmin = localStorage.getItem("admin")
-    if (savedAdmin) {
-      try {
-        const admin = JSON.parse(savedAdmin)
-        dispatch({ type: "LOGIN", payload: admin })
-        dispatch({ type: "SET_STATS", payload: mockStats })
-      } catch (error) {
-        console.error("Error parsing saved admin:", error)
-        localStorage.removeItem("admin")
+    const checkAdminAuth = async () => {
+      const token = localStorage.getItem("adminToken")
+      if (token) {
+        try {
+          // Token ile admin bilgilerini al
+          const response = await fetch("/api/admin/me", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          const data = await response.json()
+
+          if (data.success && data.admin) {
+            // Admin bilgilerini state'e kaydet
+            dispatch({
+              type: "LOGIN",
+              payload: {
+                id: data.admin.id,
+                email: data.admin.email,
+                name: data.admin.name,
+                role: data.admin.role,
+                createdAt: data.admin.created_at,
+                lastLogin: data.admin.last_login,
+              },
+            })
+
+            // Admin istatistiklerini yükle
+            fetchAdminStats()
+          } else {
+            // Token geçersiz ise localStorage'dan temizle
+            localStorage.removeItem("adminToken")
+            dispatch({ type: "LOGOUT" })
+          }
+        } catch (error) {
+          console.error("Admin auth check error:", error)
+          localStorage.removeItem("adminToken")
+          dispatch({ type: "LOGOUT" })
+        }
       }
+
+      dispatch({ type: "SET_LOADING", payload: false })
     }
-    dispatch({ type: "SET_LOADING", payload: false })
+
+    checkAdminAuth()
   }, [])
 
   const loginAdmin = async (email: string, password: string): Promise<boolean> => {
     dispatch({ type: "SET_LOADING", payload: true })
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    const admin = mockAdmins.find((a) => a.email === email)
-    if (admin && password === "admin123") {
-      const loggedInAdmin = {
-        ...admin,
-        lastLogin: new Date().toISOString(),
+      const data = await response.json()
+
+      if (data.success && data.admin && data.token) {
+        // Token'ı localStorage'a kaydet
+        localStorage.setItem("adminToken", data.token)
+
+        // Admin bilgilerini state'e kaydet
+        dispatch({
+          type: "LOGIN",
+          payload: {
+            id: data.admin.id,
+            email: data.admin.email,
+            name: data.admin.name,
+            role: data.admin.role,
+            createdAt: data.admin.created_at,
+            lastLogin: data.admin.last_login,
+          },
+        })
+
+        // Admin istatistiklerini yükle
+        await fetchAdminStats()
+
+        return true
+      } else {
+        dispatch({ type: "SET_LOADING", payload: false })
+        return false
       }
-
-      dispatch({ type: "LOGIN", payload: loggedInAdmin })
-      dispatch({ type: "SET_STATS", payload: mockStats })
-      localStorage.setItem("admin", JSON.stringify(loggedInAdmin))
-      return true
+    } catch (error) {
+      console.error("Admin login error:", error)
+      dispatch({ type: "SET_LOADING", payload: false })
+      return false
     }
+  }
 
-    dispatch({ type: "SET_LOADING", payload: false })
-    return false
+  const fetchAdminStats = async (): Promise<void> => {
+    if (!state.isAuthenticated) return
+
+    try {
+      const token = localStorage.getItem("adminToken")
+      if (!token) return
+
+      const response = await fetch("/api/admin/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.stats) {
+        dispatch({ type: "SET_STATS", payload: data.stats })
+      }
+    } catch (error) {
+      console.error("Fetch admin stats error:", error)
+    }
   }
 
   const logoutAdmin = () => {
+    localStorage.removeItem("adminToken")
     dispatch({ type: "LOGOUT" })
-    localStorage.removeItem("admin")
   }
 
-  return <AdminContext.Provider value={{ state, dispatch, loginAdmin, logoutAdmin }}>{children}</AdminContext.Provider>
+  return (
+    <AdminContext.Provider
+      value={{
+        state,
+        dispatch,
+        loginAdmin,
+        logoutAdmin,
+        fetchAdminStats,
+      }}
+    >
+      {children}
+    </AdminContext.Provider>
+  )
 }
 
 export function useAdmin() {

@@ -65,6 +65,8 @@ const AuthContext = createContext<{
   login: (email: string, password: string) => Promise<boolean>
   register: (userData: RegisterData) => Promise<boolean>
   logout: () => void
+  fetchOrders: () => Promise<void>
+  updateProfile: (userData: Partial<User>) => Promise<boolean>
 } | null>(null)
 
 export interface RegisterData {
@@ -117,81 +119,6 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
   }
 }
 
-// Mock kullanıcı verileri (gerçek uygulamada API'den gelecek)
-const mockUsers: User[] = [
-  {
-    id: "1",
-    email: "demo@example.com",
-    firstName: "Demo",
-    lastName: "Kullanıcı",
-    phone: "+90 555 123 4567",
-    address: {
-      street: "Atatürk Caddesi No: 123",
-      city: "İstanbul",
-      state: "İstanbul",
-      zipCode: "34000",
-      country: "Türkiye",
-    },
-    createdAt: "2024-01-01T00:00:00Z",
-  },
-]
-
-// mockOrders array'ini güncelle:
-const mockOrders: Order[] = [
-  {
-    id: "order-1",
-    userId: "1",
-    items: [
-      {
-        productId: "1",
-        productName: "Premium NFC Deri Bileklik",
-        price: 299,
-        quantity: 1,
-        image: "/placeholder.svg?height=100&width=100",
-        nfcEnabled: true,
-      },
-    ],
-    total: 299,
-    status: "delivered", // delivered olarak değiştir
-    createdAt: "2024-01-15T10:30:00Z",
-    shippingAddress: {
-      street: "Atatürk Caddesi No: 123",
-      city: "İstanbul",
-      state: "İstanbul",
-      zipCode: "34000",
-      country: "Türkiye",
-    },
-    nfcContentUploaded: false, // false olarak değiştir
-    themeSelected: false, // false olarak değiştir
-  },
-  {
-    id: "order-2",
-    userId: "1",
-    items: [
-      {
-        productId: "2",
-        productName: "Spor NFC Silikon Bileklik",
-        price: 199,
-        quantity: 2,
-        image: "/placeholder.svg?height=100&width=100",
-        nfcEnabled: true,
-      },
-    ],
-    total: 398,
-    status: "delivered", // delivered olarak değiştir
-    createdAt: "2024-01-20T14:15:00Z",
-    shippingAddress: {
-      street: "Atatürk Caddesi No: 123",
-      city: "İstanbul",
-      state: "İstanbul",
-      zipCode: "34000",
-      country: "Türkiye",
-    },
-    nfcContentUploaded: false, // false olarak değiştir
-    themeSelected: false, // false olarak değiştir
-  },
-]
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, {
     user: null,
@@ -202,75 +129,256 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sayfa yüklendiğinde localStorage'dan kullanıcı bilgilerini kontrol et
   useEffect(() => {
-    const savedUser = localStorage.getItem("user")
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser)
-        dispatch({ type: "LOGIN", payload: user })
-        // Kullanıcının siparişlerini yükle
-        const userOrders = mockOrders.filter((order) => order.userId === user.id)
-        dispatch({ type: "SET_ORDERS", payload: userOrders })
-      } catch (error) {
-        console.error("Error parsing saved user:", error)
-        localStorage.removeItem("user")
+    const checkAuth = async () => {
+      const token = localStorage.getItem("authToken")
+      if (token) {
+        try {
+          // Token ile kullanıcı bilgilerini al
+          const response = await fetch("/api/auth/me", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          const data = await response.json()
+
+          if (data.success && data.user) {
+            // Kullanıcı bilgilerini state'e kaydet
+            dispatch({
+              type: "LOGIN",
+              payload: {
+                id: data.user.id,
+                email: data.user.email,
+                firstName: data.user.first_name,
+                lastName: data.user.last_name,
+                phone: data.user.phone,
+                createdAt: data.user.created_at,
+              },
+            })
+
+            // Kullanıcının siparişlerini yükle
+            fetchOrders()
+          } else {
+            // Token geçersiz ise localStorage'dan temizle
+            localStorage.removeItem("authToken")
+            dispatch({ type: "LOGOUT" })
+          }
+        } catch (error) {
+          console.error("Auth check error:", error)
+          localStorage.removeItem("authToken")
+          dispatch({ type: "LOGOUT" })
+        }
       }
+
+      dispatch({ type: "SET_LOADING", payload: false })
     }
-    dispatch({ type: "SET_LOADING", payload: false })
+
+    checkAuth()
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     dispatch({ type: "SET_LOADING", payload: true })
 
-    // Mock authentication (gerçek uygulamada API çağrısı yapılacak)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    const user = mockUsers.find((u) => u.email === email)
-    if (user && password === "123456") {
-      // Demo şifre
-      dispatch({ type: "LOGIN", payload: user })
-      localStorage.setItem("user", JSON.stringify(user))
+      const data = await response.json()
 
-      // Kullanıcının siparişlerini yükle
-      const userOrders = mockOrders.filter((order) => order.userId === user.id)
-      dispatch({ type: "SET_ORDERS", payload: userOrders })
+      if (data.success && data.user && data.token) {
+        // Token'ı localStorage'a kaydet
+        localStorage.setItem("authToken", data.token)
 
-      return true
+        // Kullanıcı bilgilerini state'e kaydet
+        dispatch({
+          type: "LOGIN",
+          payload: {
+            id: data.user.id,
+            email: data.user.email,
+            firstName: data.user.first_name,
+            lastName: data.user.last_name,
+            phone: data.user.phone,
+            createdAt: data.user.created_at,
+          },
+        })
+
+        // Kullanıcının siparişlerini yükle
+        await fetchOrders()
+
+        return true
+      } else {
+        dispatch({ type: "SET_LOADING", payload: false })
+        return false
+      }
+    } catch (error) {
+      console.error("Login error:", error)
+      dispatch({ type: "SET_LOADING", payload: false })
+      return false
     }
-
-    dispatch({ type: "SET_LOADING", payload: false })
-    return false
   }
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     dispatch({ type: "SET_LOADING", payload: true })
 
-    // Mock registration (gerçek uygulamada API çağrısı yapılacak)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: userData.email,
+          password: userData.password,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          phone: userData.phone || "",
+        }),
+      })
 
-    const newUser: User = {
-      id: Date.now().toString(),
-      email: userData.email,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      phone: userData.phone,
-      createdAt: new Date().toISOString(),
+      const data = await response.json()
+
+      if (data.success && data.user && data.token) {
+        // Token'ı localStorage'a kaydet
+        localStorage.setItem("authToken", data.token)
+
+        // Kullanıcı bilgilerini state'e kaydet
+        dispatch({
+          type: "LOGIN",
+          payload: {
+            id: data.user.id,
+            email: data.user.email,
+            firstName: data.user.first_name,
+            lastName: data.user.last_name,
+            phone: data.user.phone,
+            createdAt: data.user.created_at,
+          },
+        })
+
+        return true
+      } else {
+        dispatch({ type: "SET_LOADING", payload: false })
+        return false
+      }
+    } catch (error) {
+      console.error("Register error:", error)
+      dispatch({ type: "SET_LOADING", payload: false })
+      return false
     }
+  }
 
-    // Mock kullanıcı listesine ekle (gerçek uygulamada API'ye gönderilecek)
-    mockUsers.push(newUser)
+  const fetchOrders = async (): Promise<void> => {
+    if (!state.isAuthenticated || !state.user) return
 
-    dispatch({ type: "LOGIN", payload: newUser })
-    localStorage.setItem("user", JSON.stringify(newUser))
+    try {
+      const token = localStorage.getItem("authToken")
+      if (!token) return
 
-    return true
+      const response = await fetch("/api/orders", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.orders) {
+        // Siparişleri formatlayarak state'e kaydet
+        const formattedOrders = data.orders.map((order: any) => ({
+          id: order.id,
+          userId: order.user_id,
+          total: order.total_amount,
+          status: order.status,
+          createdAt: order.created_at,
+          shippingAddress: order.shipping_address,
+          items: order.items.map((item: any) => ({
+            productId: item.product_id,
+            productName: item.product_name,
+            price: item.unit_price,
+            quantity: item.quantity,
+            image: item.product_image || "",
+            nfcEnabled: item.nfc_enabled,
+          })),
+          nfcContentUploaded: order.nfc_content_uploaded,
+          themeSelected: order.theme_selected,
+        }))
+
+        dispatch({ type: "SET_ORDERS", payload: formattedOrders })
+      }
+    } catch (error) {
+      console.error("Fetch orders error:", error)
+    }
+  }
+
+  const updateProfile = async (userData: Partial<User>): Promise<boolean> => {
+    if (!state.isAuthenticated || !state.user) return false
+
+    try {
+      const token = localStorage.getItem("authToken")
+      if (!token) return false
+
+      const response = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          phone: userData.phone,
+          address: userData.address,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.user) {
+        // Kullanıcı bilgilerini güncelle
+        dispatch({
+          type: "UPDATE_PROFILE",
+          payload: {
+            firstName: data.user.first_name,
+            lastName: data.user.last_name,
+            phone: data.user.phone,
+            address: data.user.address,
+          },
+        })
+
+        return true
+      } else {
+        return false
+      }
+    } catch (error) {
+      console.error("Update profile error:", error)
+      return false
+    }
   }
 
   const logout = () => {
+    localStorage.removeItem("authToken")
     dispatch({ type: "LOGOUT" })
-    localStorage.removeItem("user")
   }
 
-  return <AuthContext.Provider value={{ state, dispatch, login, register, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        state,
+        dispatch,
+        login,
+        register,
+        logout,
+        fetchOrders,
+        updateProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
