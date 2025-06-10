@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
@@ -18,6 +17,7 @@ export default function CustomDesignPage() {
   const { state } = useAuth()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const [formData, setFormData] = useState({
     productType: "",
     material: "",
@@ -25,10 +25,43 @@ export default function CustomDesignPage() {
     file: null as File | null,
   })
 
-  // Kullanıcı giriş yapmamışsa login sayfasına yönlendir
+  // Client-side mounting kontrolü
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Kullanıcı giriş kontrolü - sadece client-side'da
+  useEffect(() => {
+    if (isClient && !state.isAuthenticated) {
+      router.push("/login?redirect=/custom-design")
+    }
+  }, [isClient, state.isAuthenticated, router])
+
+  // Server-side rendering sırasında loading göster
+  if (!isClient) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded mb-8"></div>
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Kullanıcı giriş yapmamışsa loading göster
   if (!state.isAuthenticated) {
-    router.push("/login?redirect=/custom-design")
-    return null
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Yönlendiriliyor...</p>
+        </div>
+      </div>
+    )
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

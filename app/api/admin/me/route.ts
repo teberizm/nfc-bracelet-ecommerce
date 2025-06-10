@@ -1,27 +1,26 @@
 import { NextResponse } from "next/server"
 import { getAdminById } from "@/lib/database"
-import { verifyAdminToken } from "@/lib/auth"
+import { verifyToken } from "@/lib/auth"
+
+export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Token'ı al
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ success: false, message: "Token gerekli" }, { status: 401 })
     }
 
-    const token = authHeader.split(" ")[1]
+    const token = authHeader.substring(7)
+    const payload = await verifyToken(token)
 
-    // Token'ı doğrula
-    const decoded = await verifyAdminToken(token)
-    if (!decoded || !decoded.adminId) {
-      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
+    if (!payload || !payload.adminId) {
+      return NextResponse.json({ success: false, message: "Geçersiz admin token" }, { status: 401 })
     }
 
-    // Admin bilgilerini al
-    const admin = await getAdminById(decoded.adminId)
+    const admin = await getAdminById(payload.adminId)
     if (!admin) {
-      return NextResponse.json({ success: false, message: "Admin not found" }, { status: 404 })
+      return NextResponse.json({ success: false, message: "Admin bulunamadı" }, { status: 404 })
     }
 
     return NextResponse.json({
@@ -31,12 +30,10 @@ export async function GET(request: Request) {
         email: admin.email,
         name: admin.name,
         role: admin.role,
-        created_at: admin.created_at,
-        last_login: admin.last_login,
       },
     })
   } catch (error) {
-    console.error("Error in /api/admin/me:", error)
-    return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
+    console.error("Admin me API error:", error)
+    return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
   }
 }

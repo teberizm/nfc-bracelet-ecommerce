@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { getUserById } from "@/lib/database"
 import { verifyToken } from "@/lib/auth"
 
+// API route'u dynamic olarak işaretle
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get("authorization")
