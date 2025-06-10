@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
 
@@ -8,67 +7,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const id = params.id
     console.log("Fetching product with ID:", id)
 
-    // Ürün bilgilerini getir (hem ID hem slug ile arama)
-    const products = await sql`
-      SELECT p.*, c.name as category_name, c.slug as category_slug
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE (p.id = ${id} OR p.slug = ${id}) AND p.is_active = true
-      LIMIT 1
-    `
+    // Demo ürün döndür
+    const demoProduct = getDemoProduct(id)
 
-    if (products.length === 0) {
-      console.log("Product not found in database")
-
-      // Demo ürün döndür (ID'ye göre)
-      const demoProduct = getDemoProduct(id)
-      if (demoProduct) {
-        return NextResponse.json({
-          success: true,
-          product: demoProduct,
-          message: "Demo ürün gösteriliyor",
-        })
-      }
-
-      return NextResponse.json({ success: false, error: "Ürün bulunamadı" }, { status: 404 })
+    if (demoProduct) {
+      return NextResponse.json({
+        success: true,
+        product: demoProduct,
+      })
     }
 
-    const product = products[0]
-    console.log("Product found:", product.name)
-
-    // Ürün görselleri
-    const images = await sql`
-      SELECT image_url FROM product_images 
-      WHERE product_id = ${product.id}
-      ORDER BY sort_order
-    `
-
-    // Ürün özellikleri
-    const features = await sql`
-      SELECT feature_name FROM product_features
-      WHERE product_id = ${product.id}
-      ORDER BY sort_order
-    `
-
-    // Ürün teknik özellikleri
-    const specs = await sql`
-      SELECT spec_name, spec_value FROM product_specifications
-      WHERE product_id = ${product.id}
-      ORDER BY sort_order
-    `
-
-    // Veriyi düzenle
-    product.images = images.map((img: any) => img.image_url)
-    product.features = features.map((f: any) => f.feature_name)
-    product.specifications = specs.reduce((acc: any, spec: any) => {
-      acc[spec.spec_name] = spec.spec_value
-      return acc
-    }, {})
-
-    return NextResponse.json({
-      success: true,
-      product,
-    })
+    return NextResponse.json({ success: false, error: "Ürün bulunamadı" }, { status: 404 })
   } catch (error) {
     console.error("Error fetching product:", error)
 
@@ -79,7 +28,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({
         success: true,
         product: demoProduct,
-        message: "Demo ürün gösteriliyor (veritabanı hatası)",
       })
     }
 
