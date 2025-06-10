@@ -107,7 +107,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {/* Sepete Ekle */}
           <div className="space-y-4">
-            <AddToCartButton product={product} />
+            <AddToCartButton
+              product={{
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                stock: product.stock,
+                images: product.images,
+              }}
+            />
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="flex-1">
                 <Heart className="w-4 h-4 mr-2" />
