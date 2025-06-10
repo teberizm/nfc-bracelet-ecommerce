@@ -111,12 +111,28 @@ export default function HomePage() {
             products = []
           }
 
-          console.log("✅ İşlenen ürünler:", products)
+          console.log("✅ Veritabanından gelen ürünler:", products)
 
-          // Ürünleri Product tipine dönüştür
+          // Kendin Tasarla ürününü ekle
+          const customDesignProduct: Product = {
+            id: "custom-design",
+            name: "Kendin Tasarla",
+            price: 0,
+            image: "/placeholder.svg?height=300&width=300",
+            description:
+              "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
+            nfcEnabled: true,
+            stock: 999,
+            category: "Özel Tasarım",
+            rating: 5,
+            isCustomDesign: true,
+            featured: true,
+          }
+
+          // Ürünleri Product tipine dönüştür - VERİTABANINDAKİ İSİMLERİ AYNEN KULLAN
           const convertedProducts = products.map((p: any) => ({
             id: p.id?.toString() || p.product_id?.toString(),
-            name: p.name || p.product_name,
+            name: p.name || p.product_name, // Veritabanındaki ismi aynen kullan
             price: Number(p.price) || 0,
             image: p.primary_image || p.image || "/placeholder.svg?height=300&width=300",
             description: p.description || "",
@@ -127,26 +143,61 @@ export default function HomePage() {
             featured: p.featured || false,
           }))
 
+          console.log("✅ Dönüştürülmüş ürünler:", convertedProducts)
+
           // Öne çıkan ürünleri filtrele
           let featured = convertedProducts.filter((p: Product) => p.featured)
 
-          // Eğer öne çıkan ürün yoksa, ilk 4 ürünü al
+          // Eğer öne çıkan ürün yoksa, ilk 3 ürünü al
           if (featured.length === 0) {
-            featured = convertedProducts.slice(0, 4)
+            featured = convertedProducts.slice(0, 3)
+          } else {
+            // En fazla 3 öne çıkan ürün al
+            featured = featured.slice(0, 3)
           }
 
-          // En fazla 4 ürün göster
-          const finalFeatured = featured.slice(0, 4)
+          // Kendin Tasarla'yı başa ekle
+          const finalFeatured = [customDesignProduct, ...featured]
 
           setFeaturedProducts(finalFeatured)
           console.log("✅ Öne çıkan ürünler ayarlandı:", finalFeatured)
         } else {
           console.log("❌ API hatası:", response.status)
-          setFeaturedProducts([])
+          // Sadece Kendin Tasarla ürününü göster
+          const customDesignProduct: Product = {
+            id: "custom-design",
+            name: "Kendin Tasarla",
+            price: 0,
+            image: "/placeholder.svg?height=300&width=300",
+            description:
+              "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
+            nfcEnabled: true,
+            stock: 999,
+            category: "Özel Tasarım",
+            rating: 5,
+            isCustomDesign: true,
+            featured: true,
+          }
+          setFeaturedProducts([customDesignProduct])
         }
       } catch (error) {
         console.error("❌ Ürünler yüklenirken hata:", error)
-        setFeaturedProducts([])
+        // Sadece Kendin Tasarla ürününü göster
+        const customDesignProduct: Product = {
+          id: "custom-design",
+          name: "Kendin Tasarla",
+          price: 0,
+          image: "/placeholder.svg?height=300&width=300",
+          description:
+            "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
+          nfcEnabled: true,
+          stock: 999,
+          category: "Özel Tasarım",
+          rating: 5,
+          isCustomDesign: true,
+          featured: true,
+        }
+        setFeaturedProducts([customDesignProduct])
       } finally {
         setLoading(false)
       }
@@ -241,22 +292,11 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          ) : featuredProducts.length > 0 ? (
+          ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Henüz Ürün Yok</h3>
-              <p className="text-gray-600 mb-6">Veritabanında henüz ürün bulunmuyor.</p>
-              <Button asChild>
-                <Link href="/admin">Admin Paneline Git</Link>
-              </Button>
             </div>
           )}
         </div>
