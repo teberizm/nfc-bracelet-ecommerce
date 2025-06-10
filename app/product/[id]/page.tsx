@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Heart, Share2, Star, Zap, Shield, Truck, RotateCcw } from "lucide-react"
+import { Heart, Share2, Star, Zap, Shield, Truck, RotateCcw, ArrowLeft } from "lucide-react"
 import { AddToCartButton } from "@/components/add-to-cart-button"
+import Link from "next/link"
 
 interface ProductPageProps {
   params: {
@@ -16,15 +17,19 @@ interface ProductPageProps {
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
+  console.log("Product ID from params:", params.id)
+
   // Veritabanından ürünü çek
   const product = await getProductById(params.id)
+  console.log("Found product:", product)
 
   if (!product) {
+    console.log("Product not found, showing 404")
     notFound()
   }
 
   // İlgili ürünleri çek
-  const relatedProducts = await getRelatedProducts(product.id, product.categorySlug, 4)
+  const relatedProducts = await getRelatedProducts(product.id, product.category, 4)
 
   const discountPercentage = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -32,10 +37,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Geri Dön Butonu */}
+      <Button variant="outline" className="mb-6" asChild>
+        <Link href="/products">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Ürünlere Geri Dön
+        </Link>
+      </Button>
+
       <div className="grid lg:grid-cols-2 gap-12 mb-16">
         {/* Ürün Görselleri */}
         <div>
-          <ProductGallery images={product.images} productName={product.name} video360={product.video360} />
+          <ProductGallery
+            images={product.images || [product.image || "/placeholder.svg?height=400&width=400"]}
+            productName={product.name}
+            video360={product.video360}
+          />
         </div>
 
         {/* Ürün Bilgileri */}
@@ -57,13 +74,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   <Star
                     key={i}
                     className={`w-5 h-5 ${
-                      i < Math.floor(product.rating) ? "text-yellow-400 fill-current" : "text-gray-300"
+                      i < Math.floor(product.rating || 4.5) ? "text-yellow-400 fill-current" : "text-gray-300"
                     }`}
                   />
                 ))}
               </div>
               <span className="text-sm text-gray-600">
-                {product.rating.toFixed(1)} ({product.reviewCount} değerlendirme)
+                {(product.rating || 4.5).toFixed(1)} ({product.reviewCount || 0} değerlendirme)
               </span>
             </div>
           </div>
@@ -112,8 +129,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 id: product.id,
                 name: product.name,
                 price: product.price,
-                stock: product.stock,
-                images: product.images,
+                stock: product.stock || 10,
+                images: product.images || [product.image || "/placeholder.svg?height=400&width=400"],
               }}
             />
             <div className="flex gap-2">
@@ -161,7 +178,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <TabsContent value="features" className="mt-6">
           <Card>
             <CardContent className="pt-6">
-              {product.features.length > 0 ? (
+              {product.features && product.features.length > 0 ? (
                 <ul className="space-y-3">
                   {product.features.map((feature, index) => (
                     <li key={index} className="flex items-start gap-3">
@@ -180,7 +197,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <TabsContent value="specifications" className="mt-6">
           <Card>
             <CardContent className="pt-6">
-              {Object.keys(product.specifications).length > 0 ? (
+              {product.specifications && Object.keys(product.specifications).length > 0 ? (
                 <div className="space-y-4">
                   {Object.entries(product.specifications).map(([key, value]) => (
                     <div key={key} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
