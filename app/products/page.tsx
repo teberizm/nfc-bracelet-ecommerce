@@ -1,11 +1,11 @@
 import { getProducts } from "@/lib/products"
-import { getAllCategories } from "@/lib/database"
+import { getCategories } from "@/lib/categories"
 import { ProductsClient } from "./products-client"
 
 export default async function ProductsPage() {
-  // Veritabanından ürünleri ve kategorileri çek
-  const products = await getProducts(100, 0) // Daha fazla ürün çek
-  const categories = await getAllCategories()
+  // Veritabanından ürünleri ve kategorileri çek (fallback ile)
+  const products = await getProducts(100, 0)
+  const categories = await getCategories()
 
   return (
     <div className="container mx-auto px-4 py-8">

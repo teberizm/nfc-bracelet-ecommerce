@@ -1,69 +1,44 @@
-export interface Category {
-  id: string
-  name: string
-  subcategories: Subcategory[]
-}
+import { getAllCategories as getCategoriesFromDB } from "@/lib/database"
 
-export interface Subcategory {
-  id: string
-  name: string
-}
-
-export const categories: Category[] = [
+// Fallback kategori verisi
+const fallbackCategories = [
   {
-    id: "bileklik",
-    name: "Bileklik",
-    subcategories: [
-      { id: "altin", name: "Altın" },
-      { id: "gumus", name: "Gümüş" },
-      { id: "paslanmaz-celik", name: "Paslanmaz Çelik" },
-      { id: "deri", name: "Deri" },
-      { id: "silikon", name: "Silikon" },
-      { id: "metal", name: "Metal" },
-    ],
+    id: "1",
+    name: "Deri Bileklik",
+    slug: "deri-bileklik",
+    description: "Premium deri malzemeden üretilmiş şık bileklikler",
+    parent_id: null,
+    sort_order: 1,
+    is_active: true,
   },
   {
-    id: "kolye",
-    name: "Kolye",
-    subcategories: [
-      { id: "altin", name: "Altın" },
-      { id: "gumus", name: "Gümüş" },
-      { id: "paslanmaz-celik", name: "Paslanmaz Çelik" },
-      { id: "metal", name: "Metal" },
-    ],
+    id: "2",
+    name: "Silikon Bileklik",
+    slug: "silikon-bileklik",
+    description: "Su geçirmez ve dayanıklı silikon bileklikler",
+    parent_id: null,
+    sort_order: 2,
+    is_active: true,
   },
   {
-    id: "yuzuk",
-    name: "Yüzük",
-    subcategories: [
-      { id: "altin", name: "Altın" },
-      { id: "gumus", name: "Gümüş" },
-      { id: "paslanmaz-celik", name: "Paslanmaz Çelik" },
-      { id: "metal", name: "Metal" },
-    ],
-  },
-  {
-    id: "kupe",
-    name: "Küpe",
-    subcategories: [
-      { id: "altin", name: "Altın" },
-      { id: "gumus", name: "Gümüş" },
-      { id: "paslanmaz-celik", name: "Paslanmaz Çelik" },
-      { id: "metal", name: "Metal" },
-    ],
+    id: "3",
+    name: "Metal Bileklik",
+    slug: "metal-bileklik",
+    description: "Paslanmaz çelik ve lüks metal bileklikler",
+    parent_id: null,
+    sort_order: 3,
+    is_active: true,
   },
 ]
 
-export function getCategoryById(id: string): Category | undefined {
-  return categories.find((category) => category.id === id)
-}
-
-export function getSubcategoriesByCategory(categoryId: string): Subcategory[] {
-  const category = getCategoryById(categoryId)
-  return category ? category.subcategories : []
-}
-
-export function getSubcategoryById(categoryId: string, subcategoryId: string): Subcategory | undefined {
-  const category = getCategoryById(categoryId)
-  return category?.subcategories.find((subcategory) => subcategory.id === subcategoryId)
+export async function getCategories() {
+  try {
+    console.log("Veritabanından kategoriler çekiliyor...")
+    const categories = await getCategoriesFromDB()
+    console.log(`✅ ${categories.length} kategori başarıyla çekildi`)
+    return categories
+  } catch (error) {
+    console.error("❌ Veritabanı hatası, fallback veriler kullanılıyor:", error)
+    return fallbackCategories
+  }
 }
