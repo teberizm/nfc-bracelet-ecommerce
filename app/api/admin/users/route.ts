@@ -31,50 +31,23 @@ export async function GET(request: Request) {
 
     console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
 
-    // Basit SQL sorgusu kullanarak kullanıcıları çek
-    let query = `
-      SELECT 
-        u.id, 
-        u.email, 
-        u.first_name, 
-        u.last_name, 
-        u.phone, 
-        u.created_at, 
-        u.is_active,
-        COUNT(o.id) as total_orders,
-        COALESCE(SUM(o.total_amount), 0) as total_spent
-      FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id
-    `
-
-    const whereConditions = []
+    // Önce basit bir sorgu ile test edelim
+    let query = `SELECT id, email, first_name, last_name, phone, created_at, is_active FROM users`
     const params = []
 
     if (search) {
-      whereConditions.push(`(u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR u.email ILIKE $1)`)
+      query += ` WHERE (first_name ILIKE $1 OR last_name ILIKE $1 OR email ILIKE $1)`
       params.push(`%${search}%`)
     }
 
-    if (whereConditions.length > 0) {
-      query += ` WHERE ${whereConditions.join(" AND ")}`
-    }
-
-    query += ` GROUP BY u.id`
-
     // Sıralama
-    const validSortColumns = ["created_at", "total_spent", "total_orders", "first_name"]
+    const validSortColumns = ["created_at", "first_name", "email"]
     const validSortOrders = ["asc", "desc"]
 
     if (validSortColumns.includes(sortBy) && validSortOrders.includes(sortOrder)) {
-      if (sortBy === "total_spent") {
-        query += ` ORDER BY SUM(COALESCE(o.total_amount, 0)) ${sortOrder}`
-      } else if (sortBy === "total_orders") {
-        query += ` ORDER BY COUNT(o.id) ${sortOrder}`
-      } else {
-        query += ` ORDER BY u.${sortBy} ${sortOrder}`
-      }
+      query += ` ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`
     } else {
-      query += ` ORDER BY u.created_at DESC`
+      query += ` ORDER BY created_at DESC`
     }
 
     query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
@@ -83,21 +56,46 @@ export async function GET(request: Request) {
     console.log("SQL sorgusu:", query)
     console.log("Parametreler:", params)
 
-    const result = await sql.unsafe(query, ...params)
+    // SQL sorgusunu çalıştır
+    const result = await sql(query, ...params)
 
-    const users = result.map((row) => ({
-      id: row.id,
-      email: row.email,
-      first_name: row.first_name,
-      last_name: row.last_name,
-      phone: row.phone,
-      created_at: row.created_at,
-      is_active: row.is_active,
-      total_orders: Number.parseInt(row.total_orders || "0"),
-      total_spent: Number.parseFloat(row.total_spent || "0"),
-    }))
+    console.log("Veritabanı sonucu tipi:", typeof result)
+    console.log("Veritabanı sonucu:", result)
+    console.log("Result.rows var mı?", !!result.rows)
+    console.log("Result array mi?", Array.isArray(result))
 
-    console.log(`${users.length} kullanıcı çekildi`)
+    // Sonucu normalize et
+    let rows = []
+    if (Array.isArray(result)) {
+      rows = result
+    } else if (result && result.rows && Array.isArray(result.rows)) {
+      rows = result.rows
+    } else if (result && Array.isArray(result.rows)) {
+      rows = result.rows
+    } else {
+      console.error("Beklenmeyen veritabanı sonucu formatı:", result)
+      return NextResponse.json({ success: false, message: "Veritabanı sonucu formatı hatalı" }, { status: 500 })
+    }
+
+    console.log("İşlenecek satır sayısı:", rows.length)
+
+    // Kullanıcıları formatla
+    const users = rows.map((row) => {
+      console.log("İşlenen satır:", row)
+      return {
+        id: row.id,
+        email: row.email,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone: row.phone,
+        created_at: row.created_at,
+        is_active: row.is_active,
+        total_orders: 0, // Şimdilik basit tutalım
+        total_spent: 0, // Şimdilik basit tutalım
+      }
+    })
+
+    console.log(`${users.length} kullanıcı formatlandı`)
 
     return NextResponse.json({
       success: true,
@@ -105,6 +103,7 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("Admin users hatası:", error)
+    console.error("Hata stack:", error.stack)
     return NextResponse.json(
       {
         success: false,
