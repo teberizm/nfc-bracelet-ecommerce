@@ -8,12 +8,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const id = params.id
     console.log("Fetching product with ID:", id)
 
-    // Ürün bilgilerini getir
+    // Ürün bilgilerini getir (hem ID hem slug ile arama)
     const products = await sql`
       SELECT p.*, c.name as category_name, c.slug as category_slug
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.id = ${id} AND p.is_active = true
+      WHERE (p.id = ${id} OR p.slug = ${id}) AND p.is_active = true
       LIMIT 1
     `
 
@@ -39,21 +39,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Ürün görselleri
     const images = await sql`
       SELECT image_url FROM product_images 
-      WHERE product_id = ${id}
+      WHERE product_id = ${product.id}
       ORDER BY sort_order
     `
 
     // Ürün özellikleri
     const features = await sql`
       SELECT feature_name FROM product_features
-      WHERE product_id = ${id}
+      WHERE product_id = ${product.id}
       ORDER BY sort_order
     `
 
     // Ürün teknik özellikleri
     const specs = await sql`
       SELECT spec_name, spec_value FROM product_specifications
-      WHERE product_id = ${id}
+      WHERE product_id = ${product.id}
       ORDER BY sort_order
     `
 

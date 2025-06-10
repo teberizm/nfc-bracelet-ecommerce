@@ -154,29 +154,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     checkAdminAuth()
   }, [])
 
+  // Demo giriş kontrolünü kaldır ve sadece API'ye güven
+
   const loginAdmin = async (email: string, password: string): Promise<boolean> => {
     dispatch({ type: "SET_LOADING", payload: true })
 
     try {
-      // Demo giriş kontrolü
-      if (email === "admin@nfcbileklik.com" && password === "admin123") {
-        localStorage.setItem("adminToken", "demo-token")
-
-        dispatch({
-          type: "LOGIN",
-          payload: {
-            id: "demo-admin-id",
-            email: "admin@nfcbileklik.com",
-            name: "Demo Admin",
-            role: "admin",
-            createdAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString(),
-          },
-        })
-
-        return true
-      }
-
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: {
