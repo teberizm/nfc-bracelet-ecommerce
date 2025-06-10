@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Save, MessageCircle, Package, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -33,62 +33,92 @@ interface Order {
   products: string[]
 }
 
-// Mock data
-const mockUser: User = {
-  id: "user-1",
-  name: "Ahmet Yılmaz",
-  email: "ahmet@example.com",
-  phone: "+90 532 123 45 67",
-  createdAt: "2024-01-15T10:30:00Z",
-  lastLogin: "2024-01-20T14:22:00Z",
-  status: "active",
-  totalOrders: 3,
-  totalSpent: 1200,
-  notes: "VIP müşteri, hızlı teslimat tercih ediyor.",
-}
-
-const mockOrders: Order[] = [
-  {
-    id: "order-1",
-    date: "2024-01-20",
-    status: "Tamamlandı",
-    total: 450,
-    products: ["Gümüş NFC Bileklik", "Aşk Teması"],
-  },
-  {
-    id: "order-2",
-    date: "2024-01-18",
-    status: "Kargoya Verildi",
-    total: 350,
-    products: ["Siyah NFC Bileklik"],
-  },
-  {
-    id: "order-3",
-    date: "2024-01-15",
-    status: "Tamamlandı",
-    total: 400,
-    products: ["Altın NFC Bileklik", "Adventure Teması"],
-  },
-]
-
 export default function UserDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const [user, setUser] = useState<User>(mockUser)
-  const [orders] = useState<Order[]>(mockOrders)
+  const [user, setUser] = useState<User | null>(null)
+  const [orders, setOrders] = useState<Order[]>([])
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchUserData()
+  }, [params.id])
+
+  const fetchUserData = async () => {
+    try {
+      setIsLoading(true)
+      console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
+
+      const response = await fetch(`/api/admin/users/${params.id}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Kullanıcı detayı çekilemedi")
+      }
+
+      if (data.success) {
+        setUser(data.user)
+        setOrders(data.orders || [])
+        console.log("Kullanıcı detayı başarıyla yüklendi:", data.user.name)
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      console.error("Kullanıcı detayı çekilirken hata:", error)
+      setError(error.message)
+      toast.error("Kullanıcı detayı yüklenemedi")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleSave = async () => {
-    setIsSaving(true)
-    // API call simulation
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsSaving(false)
-    setIsEditing(false)
-    toast.success("Kullanıcı bilgileri güncellendi")
+    if (!user) return
+
+    try {
+      setIsSaving(true)
+      console.log("Kullanıcı güncelleniyor:", user.name)
+
+      const response = await fetch(`/api/admin/users/${params.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          status: user.status,
+          notes: user.notes,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Kullanıcı güncellenemedi")
+      }
+
+      if (data.success) {
+        setIsEditing(false)
+        toast.success("Kullanıcı bilgileri güncellendi")
+        console.log("Kullanıcı başarıyla güncellendi")
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      console.error("Kullanıcı güncellenirken hata:", error)
+      toast.error("Kullanıcı güncellenemedi: " + error.message)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleWhatsApp = () => {
+    if (!user) return
     const message = `Merhaba ${user.name}, NFC Bileklik ekibinden size ulaşıyoruz.`
     const whatsappUrl = `https://wa.me/${user.phone.replace(/\s/g, "")}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
@@ -109,19 +139,74 @@ export default function UserDetailPage() {
 
   const getOrderStatusColor = (status: string) => {
     switch (status) {
-      case "Tamamlandı":
+      case "completed":
         return "bg-green-100 text-green-800"
-      case "Kargoya Verildi":
+      case "shipped":
         return "bg-blue-100 text-blue-800"
-      case "İşleniyor":
+      case "processing":
         return "bg-yellow-100 text-yellow-800"
-      case "Onay Bekliyor":
+      case "pending":
         return "bg-orange-100 text-orange-800"
-      case "Başarısız":
+      case "cancelled":
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Aktif"
+      case "inactive":
+        return "Pasif"
+      case "banned":
+        return "Yasaklı"
+      default:
+        return status
+    }
+  }
+
+  const getOrderStatusText = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "Tamamlandı"
+      case "shipped":
+        return "Kargoya Verildi"
+      case "processing":
+        return "İşleniyor"
+      case "pending":
+        return "Onay Bekliyor"
+      case "cancelled":
+        return "İptal Edildi"
+      default:
+        return status
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Kullanıcı detayı yükleniyor...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error || "Kullanıcı bulunamadı"}</p>
+          <Button onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Geri Dön
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -229,9 +314,7 @@ export default function UserDetailPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Durum</span>
-                  <Badge className={getStatusColor(user.status)}>
-                    {user.status === "active" ? "Aktif" : user.status === "inactive" ? "Pasif" : "Yasaklı"}
-                  </Badge>
+                  <Badge className={getStatusColor(user.status)}>{getStatusText(user.status)}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Toplam Sipariş</span>
@@ -280,24 +363,28 @@ export default function UserDetailPage() {
               <CardDescription>Kullanıcının tüm siparişleri</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <Package className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="font-medium">#{order.id}</p>
-                        <p className="text-sm text-gray-500">{order.date}</p>
-                        <p className="text-sm text-gray-600">{order.products.join(", ")}</p>
+              {orders.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">Bu kullanıcının henüz siparişi bulunmuyor.</p>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <Package className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="font-medium">#{order.id}</p>
+                          <p className="text-sm text-gray-500">{order.date}</p>
+                          <p className="text-sm text-gray-600">{order.products.join(", ")}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={getOrderStatusColor(order.status)}>{getOrderStatusText(order.status)}</Badge>
+                        <p className="text-lg font-bold mt-1">₺{order.total}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge className={getOrderStatusColor(order.status)}>{order.status}</Badge>
-                      <p className="text-lg font-bold mt-1">₺{order.total}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -310,27 +397,16 @@ export default function UserDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                  <CreditCard className="h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="font-medium">Ödeme tamamlandı</p>
-                    <p className="text-sm text-gray-500">20 Ocak 2024, 14:22</p>
+                {orders.slice(0, 5).map((order) => (
+                  <div key={order.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                    <CreditCard className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium">Sipariş #{order.id}</p>
+                      <p className="text-sm text-gray-500">{order.date}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                  <Package className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="font-medium">Sipariş oluşturuldu</p>
-                    <p className="text-sm text-gray-500">20 Ocak 2024, 14:20</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                  <MessageCircle className="h-5 w-5 text-purple-600" />
-                  <div>
-                    <p className="font-medium">Hesap oluşturuldu</p>
-                    <p className="text-sm text-gray-500">15 Ocak 2024, 10:30</p>
-                  </div>
-                </div>
+                ))}
+                {orders.length === 0 && <p className="text-gray-500 text-center py-8">Henüz aktivite bulunmuyor.</p>}
               </div>
             </CardContent>
           </Card>
