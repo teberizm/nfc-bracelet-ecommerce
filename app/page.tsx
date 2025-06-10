@@ -90,9 +90,28 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        console.log("Anasayfada ürünler çekiliyor...")
         const response = await fetch("/api/products?limit=20")
+
         if (response.ok) {
-          const products = await response.json()
+          const data = await response.json()
+          console.log("API'den gelen veri:", data)
+
+          let products = []
+
+          // API'den gelen veriyi kontrol et
+          if (Array.isArray(data)) {
+            products = data
+          } else if (data.products && Array.isArray(data.products)) {
+            products = data.products
+          } else if (data.success && data.products) {
+            products = data.products
+          } else {
+            console.log("Beklenmeyen veri formatı, fallback kullanılıyor")
+            products = []
+          }
+
+          console.log("İşlenen ürünler:", products)
 
           // Kendin Tasarla ürününü ekle
           const customDesignProduct: Product = {
@@ -110,9 +129,31 @@ export default function HomePage() {
             featured: true,
           }
 
-          // Öne çıkan ürünleri filtrele ve kendin tasarla'yı başa ekle
-          const featured = products.filter((p: Product) => p.featured).slice(0, 3)
-          setFeaturedProducts([customDesignProduct, ...featured])
+          // Ürünleri Product tipine dönüştür
+          const convertedProducts = products.map((p: any) => ({
+            id: p.id?.toString() || p.product_id?.toString(),
+            name: p.name || p.product_name,
+            price: Number(p.price) || 0,
+            image: p.primary_image || p.image || "/placeholder.svg?height=300&width=300",
+            description: p.description || "",
+            nfcEnabled: p.nfc_enabled || false,
+            stock: p.stock || 0,
+            category: p.category_name || p.category || "Genel",
+            rating: p.rating || 4.5,
+            featured: p.featured || false,
+          }))
+
+          // Öne çıkan ürünleri filtrele
+          const featured = convertedProducts.filter((p: Product) => p.featured).slice(0, 3)
+
+          // Eğer öne çıkan ürün yoksa, ilk 3 ürünü al
+          const finalFeatured = featured.length > 0 ? featured : convertedProducts.slice(0, 3)
+
+          setFeaturedProducts([customDesignProduct, ...finalFeatured])
+          console.log("Öne çıkan ürünler ayarlandı:", [customDesignProduct, ...finalFeatured])
+        } else {
+          console.log("API hatası, fallback ürünler kullanılıyor")
+          throw new Error("API request failed")
         }
       } catch (error) {
         console.error("Ürünler yüklenirken hata:", error)
