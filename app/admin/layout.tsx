@@ -1,57 +1,42 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { AdminAuthProvider, useAdminAuth } from "@/contexts/admin-context"
-import { AdminHeader } from "@/components/admin/admin-header"
+import { usePathname } from "next/navigation"
+import { AdminProvider, useAdmin } from "@/contexts/admin-context"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
-import { Toaster } from "@/components/ui/toaster"
+import { AdminHeader } from "@/components/admin/admin-header"
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAdminAuth()
-  const router = useRouter()
+  const { state } = useAdmin()
   const pathname = usePathname()
 
-  useEffect(() => {
-    // Login sayfasında değilse ve giriş yapılmamışsa login sayfasına yönlendir
-    if (!isLoading && !isAuthenticated && pathname !== "/admin/login") {
-      router.push("/admin/login")
-    }
-  }, [isAuthenticated, isLoading, router, pathname])
-
-  // Login sayfasında ise direkt içeriği göster
+  // Login sayfasında sidebar ve header gösterme
   if (pathname === "/admin/login") {
-    return <>{children}</>
+    return children
   }
 
-  // Yükleniyor veya giriş yapılmamışsa boş sayfa göster
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    )
+  // Admin giriş yapmamışsa layout gösterme
+  if (!state.isAuthenticated) {
+    return children
   }
 
-  // Giriş yapılmışsa admin paneli göster
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-50">
       <AdminSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-4">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-6 py-8">{children}</div>
+        </main>
       </div>
-      <Toaster />
     </div>
   )
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AdminAuthProvider>
+    <AdminProvider>
       <AdminLayoutContent>{children}</AdminLayoutContent>
-    </AdminAuthProvider>
+    </AdminProvider>
   )
 }

@@ -1,119 +1,111 @@
-import { getAllProducts as getProductsFromDB } from "@/lib/database"
+import { getAllProducts, getProductBySlug, getProductsByCategory, getCategoryBySlug } from "./database"
 
-// Fallback ürün verisi
-const fallbackProducts = [
-  {
-    id: "1",
-    name: "Premium NFC Deri Bileklik",
-    slug: "premium-nfc-deri-bileklik",
-    price: 299,
-    primary_image: "/placeholder.svg?height=300&width=300",
-    description: "Gerçek deri ve premium NFC teknolojisi ile özel anılarınızı paylaşın.",
-    nfc_enabled: true,
-    stock: 15,
-    featured: true,
-    category_name: "Deri Bileklik",
-    rating: 4.8,
-    review_count: 24,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    name: "Spor NFC Silikon Bileklik",
-    slug: "spor-nfc-silikon-bileklik",
-    price: 199,
-    primary_image: "/placeholder.svg?height=300&width=300",
-    description: "Su geçirmez silikon malzeme ile aktif yaşam tarzınıza uygun.",
-    nfc_enabled: true,
-    stock: 8,
-    featured: false,
-    category_name: "Silikon Bileklik",
-    rating: 4.6,
-    review_count: 18,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    name: "Lüks NFC Metal Bileklik",
-    slug: "luks-nfc-metal-bileklik",
-    price: 499,
-    primary_image: "/placeholder.svg?height=300&width=300",
-    description: "Paslanmaz çelik ve şık tasarım ile özel günleriniz için.",
-    nfc_enabled: true,
-    stock: 3,
-    featured: true,
-    category_name: "Metal Bileklik",
-    rating: 4.9,
-    review_count: 12,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "4",
-    name: "Klasik NFC Deri Bileklik",
-    slug: "klasik-nfc-deri-bileklik",
-    price: 249,
-    primary_image: "/placeholder.svg?height=300&width=300",
-    description: "Zamansız tasarım ve dayanıklı deri malzeme.",
-    nfc_enabled: true,
-    stock: 12,
-    featured: false,
-    category_name: "Deri Bileklik",
-    rating: 4.7,
-    review_count: 31,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "5",
-    name: "Renkli NFC Silikon Bileklik",
-    slug: "renkli-nfc-silikon-bileklik",
-    price: 179,
-    primary_image: "/placeholder.svg?height=300&width=300",
-    description: "Çeşitli renk seçenekleri ile kişisel tarzınızı yansıtın.",
-    nfc_enabled: true,
-    stock: 25,
-    featured: false,
-    category_name: "Silikon Bileklik",
-    rating: 4.5,
-    review_count: 45,
-    created_at: new Date().toISOString(),
-  },
-]
+export interface Product {
+  id: string
+  name: string
+  slug: string
+  description: string
+  price: number
+  originalPrice?: number
+  category: string
+  categorySlug: string
+  stock: number
+  rating: number
+  reviewCount: number
+  images: string[]
+  features: string[]
+  specifications: Record<string, string>
+  nfcEnabled: boolean
+  nfcFeatures?: string[]
+  video360?: string
+  featured: boolean
+  isActive: boolean
+  createdAt: string
+}
 
-export async function getProducts(limit = 50, offset = 0) {
+// Tüm ürünleri getir - SADECE VERİTABANINDAN
+export async function getProducts(limit = 50, offset = 0): Promise<Product[]> {
   try {
-    console.log("Veritabanından ürünler çekiliyor...")
-    const products = await getProductsFromDB(limit, offset)
-    console.log(`✅ ${products.length} ürün başarıyla çekildi`)
+    const products = await getAllProducts(limit, offset)
+    return products.map(formatProduct)
+  } catch (error) {
+    console.error("Ürünler yüklenirken hata:", error)
+    return []
+  }
+}
+
+// Slug ile ürün getir - SADECE VERİTABANINDAN
+export async function getProductById(slug: string): Promise<Product | null> {
+  try {
+    const product = await getProductBySlug(slug)
+    return product ? formatProduct(product) : null
+  } catch (error) {
+    console.error("Ürün yüklenirken hata:", error)
+    return null
+  }
+}
+
+// Kategoriye göre ürünleri getir - SADECE VERİTABANINDAN
+export async function getRelatedProducts(productId: string, categorySlug: string, limit = 4): Promise<Product[]> {
+  try {
+    const category = await getCategoryBySlug(categorySlug)
+    if (!category) return []
+
+    const products = await getProductsByCategory(category.id, limit + 1, 0)
     return products
+      .filter((p: any) => p.id !== productId)
+      .slice(0, limit)
+      .map(formatProduct)
   } catch (error) {
-    console.error("❌ Veritabanı hatası, fallback veriler kullanılıyor:", error)
-    // Veritabanı hatası durumunda fallback verilerini döndür
-    return fallbackProducts.slice(offset, offset + limit)
+    console.error("İlgili ürünler yüklenirken hata:", error)
+    return []
   }
 }
 
-export async function getProductBySlug(slug: string) {
+// Veritabanı formatını frontend formatına çevir
+function formatProduct(dbProduct: any): Product {
+  return {
+    id: dbProduct.id,
+    name: dbProduct.name,
+    slug: dbProduct.slug,
+    description: dbProduct.description,
+    price: Number.parseFloat(dbProduct.price),
+    originalPrice: dbProduct.original_price ? Number.parseFloat(dbProduct.original_price) : undefined,
+    category: dbProduct.category_name || dbProduct.category,
+    categorySlug: dbProduct.category_slug || dbProduct.category,
+    stock: dbProduct.stock || 0,
+    rating: Number.parseFloat(dbProduct.rating) || 0,
+    reviewCount: dbProduct.review_count || 0,
+    images: Array.isArray(dbProduct.images)
+      ? dbProduct.images.filter(Boolean)
+      : [dbProduct.primary_image || "/placeholder.svg?height=400&width=400"],
+    features: Array.isArray(dbProduct.features) ? dbProduct.features.filter(Boolean) : [],
+    specifications: dbProduct.specifications || {},
+    nfcEnabled: dbProduct.nfc_enabled || false,
+    nfcFeatures: dbProduct.nfc_features || [],
+    video360: dbProduct.video_360_url,
+    featured: dbProduct.featured || false,
+    isActive: dbProduct.is_active !== false,
+    createdAt: dbProduct.created_at,
+  }
+}
+
+// Arama fonksiyonu - SADECE VERİTABANINDAN
+export async function searchProducts(query: string, limit = 20): Promise<Product[]> {
   try {
-    const { getProductBySlug: getProductBySlugFromDB } = await import("@/lib/database")
-    const product = await getProductBySlugFromDB(slug)
-    if (product) return product
+    const products = await getAllProducts(limit, 0)
+    return products
+      .filter(
+        (p: any) =>
+          p.name.toLowerCase().includes(query.toLowerCase()) ||
+          p.description.toLowerCase().includes(query.toLowerCase()),
+      )
+      .map(formatProduct)
   } catch (error) {
-    console.error("❌ Veritabanı hatası, fallback veriler kullanılıyor:", error)
+    console.error("Ürün arama hatası:", error)
+    return []
   }
-
-  // Fallback: slug'a göre ürün bul
-  return fallbackProducts.find((p) => p.slug === slug) || null
 }
 
-export async function getProductById(id: string) {
-  try {
-    const { getProductById: getProductByIdFromDB } = await import("@/lib/database")
-    const product = await getProductByIdFromDB(id)
-    if (product) return product
-  } catch (error) {
-    console.error("❌ Veritabanı hatası, fallback veriler kullanılıyor:", error)
-  }
-
-  // Fallback: id'ye göre ürün bul
-  return fallbackProducts.find((p) => p.id === id) || null
-}
+// Statik products array'ini kaldır - artık kullanılmayacak
+// export const products = [...] // KALDIRILDI

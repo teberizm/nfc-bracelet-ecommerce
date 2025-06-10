@@ -87,74 +87,51 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAdminAuth = async () => {
-      try {
-        const token = localStorage.getItem("adminToken")
-
-        if (!token) {
-          dispatch({ type: "SET_LOADING", payload: false })
-          return
-        }
-
-        // Demo token kontrolü
-        if (token === "demo-token") {
-          dispatch({
-            type: "LOGIN",
-            payload: {
-              id: "demo-admin-id",
-              email: "admin@nfcbileklik.com",
-              name: "Demo Admin",
-              role: "admin",
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString(),
-            },
-          })
-          dispatch({ type: "SET_LOADING", payload: false })
-          return
-        }
-
-        // Token ile admin bilgilerini al
-        const response = await fetch("/api/admin/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        const data = await response.json()
-
-        if (data.success && data.admin) {
-          // Admin bilgilerini state'e kaydet
-          dispatch({
-            type: "LOGIN",
-            payload: {
-              id: data.admin.id,
-              email: data.admin.email,
-              name: data.admin.name,
-              role: data.admin.role,
-              createdAt: data.admin.created_at,
-              lastLogin: data.admin.last_login,
+      const token = localStorage.getItem("adminToken")
+      if (token) {
+        try {
+          // Token ile admin bilgilerini al
+          const response = await fetch("/api/admin/me", {
+            headers: {
+              Authorization: `Bearer ${token}`,
             },
           })
 
-          // Admin istatistiklerini yükle
-          fetchAdminStats()
-        } else {
-          // Token geçersiz ise localStorage'dan temizle
+          const data = await response.json()
+
+          if (data.success && data.admin) {
+            // Admin bilgilerini state'e kaydet
+            dispatch({
+              type: "LOGIN",
+              payload: {
+                id: data.admin.id,
+                email: data.admin.email,
+                name: data.admin.name,
+                role: data.admin.role,
+                createdAt: data.admin.created_at,
+                lastLogin: data.admin.last_login,
+              },
+            })
+
+            // Admin istatistiklerini yükle
+            fetchAdminStats()
+          } else {
+            // Token geçersiz ise localStorage'dan temizle
+            localStorage.removeItem("adminToken")
+            dispatch({ type: "LOGOUT" })
+          }
+        } catch (error) {
+          console.error("Admin auth check error:", error)
           localStorage.removeItem("adminToken")
           dispatch({ type: "LOGOUT" })
         }
-      } catch (error) {
-        console.error("Admin auth check error:", error)
-        localStorage.removeItem("adminToken")
-        dispatch({ type: "LOGOUT" })
-      } finally {
-        dispatch({ type: "SET_LOADING", payload: false })
       }
+
+      dispatch({ type: "SET_LOADING", payload: false })
     }
 
     checkAdminAuth()
   }, [])
-
-  // Demo giriş kontrolünü kaldır ve sadece API'ye güven
 
   const loginAdmin = async (email: string, password: string): Promise<boolean> => {
     dispatch({ type: "SET_LOADING", payload: true })
@@ -208,24 +185,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try {
       const token = localStorage.getItem("adminToken")
       if (!token) return
-
-      // Demo token için sahte istatistikler
-      if (token === "demo-token") {
-        dispatch({
-          type: "SET_STATS",
-          payload: {
-            totalUsers: 125,
-            totalOrders: 48,
-            totalRevenue: 15750,
-            pendingOrders: 12,
-            deliveredOrders: 36,
-            totalProducts: 24,
-            activeNFCContent: 18,
-            monthlyGrowth: 12.5,
-          },
-        })
-        return
-      }
 
       const response = await fetch("/api/admin/stats", {
         headers: {
