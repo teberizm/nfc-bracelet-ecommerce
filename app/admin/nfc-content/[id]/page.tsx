@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -68,12 +67,12 @@ export default function NFCContentDetailPage() {
       setIsLoading(true)
       // API call simulation
       await new Promise((resolve) => setTimeout(resolve, 500))
-      
+
       // Mock veriyi kullan
       setNfcContent(mockNFCContent)
       setIsLoading(false)
     }
-    
+
     loadNFCContent()
   }, [params.id])
 
@@ -364,5 +363,249 @@ export default function NFCContentDetailPage() {
                       <SelectItem value="pending">Bekliyor</SelectItem>
                       <SelectItem value="in_progress">İşleniyor</SelectItem>
                       <SelectItem value="completed">Tamamlandı</SelectItem>
-                      <SelectItem value="rejected">Reddedildi</SelectItem>\
+                      <SelectItem value="rejected">Reddedildi</SelectItem>
                     </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="social" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sosyal Medya Linkleri</CardTitle>
+              <CardDescription>NFC içeriğinde görüntülenecek sosyal medya hesapları</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="instagram">Instagram</Label>
+                  <Input
+                    id="instagram"
+                    placeholder="@kullanici_adi"
+                    value={nfcContent.content.socialLinks.instagram}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            instagram: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="facebook">Facebook</Label>
+                  <Input
+                    id="facebook"
+                    placeholder="kullanici.adi"
+                    value={nfcContent.content.socialLinks.facebook}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            facebook: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="linkedin">LinkedIn</Label>
+                  <Input
+                    id="linkedin"
+                    placeholder="kullanici-adi"
+                    value={nfcContent.content.socialLinks.linkedin}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            linkedin: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="twitter">Twitter</Label>
+                  <Input
+                    id="twitter"
+                    placeholder="@kullanici_adi"
+                    value={nfcContent.content.socialLinks.twitter}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            twitter: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">WhatsApp</Label>
+                  <Input
+                    id="whatsapp"
+                    placeholder="+90 555 123 4567"
+                    value={nfcContent.content.socialLinks.whatsapp}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            whatsapp: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-posta</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="ornek@email.com"
+                    value={nfcContent.content.socialLinks.email}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            email: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input
+                    id="website"
+                    placeholder="https://website.com"
+                    value={nfcContent.content.socialLinks.website}
+                    onChange={(e) =>
+                      setNfcContent({
+                        ...nfcContent,
+                        content: {
+                          ...nfcContent.content,
+                          socialLinks: {
+                            ...nfcContent.content.socialLinks,
+                            website: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="preview" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>NFC İçerik Önizlemesi</CardTitle>
+              <CardDescription>İçeriğin nasıl görüneceğinin önizlemesi</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="max-w-sm mx-auto bg-white rounded-lg shadow-lg p-6">
+                  <div className="text-center mb-4">
+                    {nfcContent.content.photo && (
+                      <Image
+                        src={nfcContent.content.photo || "/placeholder.svg"}
+                        alt="Profil"
+                        width={120}
+                        height={120}
+                        className="rounded-full mx-auto mb-4 object-cover"
+                      />
+                    )}
+                    <h2 className="text-xl font-bold">{nfcContent.content.name}</h2>
+                    <p className="text-gray-600 mt-2">{nfcContent.content.message}</p>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(nfcContent.content.socialLinks).map(([platform, value]) => {
+                      if (!value) return null
+                      return (
+                        <div key={platform} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <span className="capitalize font-medium">{platform}</span>
+                          <span className="text-sm text-gray-600">{value}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="customer" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Müşteri Bilgileri</CardTitle>
+              <CardDescription>Sipariş veren müşterinin bilgileri</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Müşteri Adı</Label>
+                    <p className="text-lg">{nfcContent.customerName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">E-posta</Label>
+                    <p className="text-lg">{nfcContent.customerEmail}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Telefon</Label>
+                    <p className="text-lg">{nfcContent.customerPhone}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Sipariş No</Label>
+                    <p className="text-lg">{nfcContent.orderNumber}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Ürün</Label>
+                    <p className="text-lg">{nfcContent.productName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Tema</Label>
+                    <p className="text-lg">{nfcContent.theme}</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
