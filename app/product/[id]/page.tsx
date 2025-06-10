@@ -28,15 +28,20 @@ interface ProductPageProps {
 // Veritabanından ürün çekme fonksiyonu
 async function getProductFromAPI(id: string) {
   try {
-    console.log("🔍 Ürün detay sayfası - ID:", id)
+    console.log("🔍 [PRODUCT DETAIL] Başlatılıyor...")
+    console.log("🔍 [PRODUCT DETAIL] Aranan ID:", id)
+    console.log("🔍 [PRODUCT DETAIL] ID tipi:", typeof id)
+    console.log("🔍 [PRODUCT DETAIL] ID uzunluğu:", id.length)
 
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
       (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
 
     const url = `${baseUrl}/api/products/${id}`
-    console.log("🔍 API URL:", url)
+    console.log("🔍 [PRODUCT DETAIL] API URL:", url)
+    console.log("🔍 [PRODUCT DETAIL] Base URL:", baseUrl)
 
+    console.log("🔍 [PRODUCT DETAIL] Fetch başlatılıyor...")
     const response = await fetch(url, {
       cache: "no-store",
       headers: {
@@ -44,39 +49,63 @@ async function getProductFromAPI(id: string) {
       },
     })
 
-    console.log("🔍 API Response status:", response.status)
-    console.log("🔍 API Response ok:", response.ok)
+    console.log("🔍 [PRODUCT DETAIL] Response alındı")
+    console.log("🔍 [PRODUCT DETAIL] Response status:", response.status)
+    console.log("🔍 [PRODUCT DETAIL] Response ok:", response.ok)
+    console.log("🔍 [PRODUCT DETAIL] Response headers:", Object.fromEntries(response.headers.entries()))
 
     if (!response.ok) {
-      console.log("❌ API response not ok:", response.status, response.statusText)
+      console.log("❌ [PRODUCT DETAIL] API response not ok")
+      console.log("❌ [PRODUCT DETAIL] Status:", response.status)
+      console.log("❌ [PRODUCT DETAIL] Status text:", response.statusText)
+
+      const errorText = await response.text()
+      console.log("❌ [PRODUCT DETAIL] Error response body:", errorText)
       return null
     }
 
+    console.log("🔍 [PRODUCT DETAIL] JSON parse başlatılıyor...")
     const data = await response.json()
-    console.log("✅ API response data:", data)
+    console.log("✅ [PRODUCT DETAIL] JSON parse tamamlandı")
+    console.log("✅ [PRODUCT DETAIL] Response data:", JSON.stringify(data, null, 2))
 
     if (data.success && data.product) {
-      console.log("✅ Product found:", data.product.name)
+      console.log("✅ [PRODUCT DETAIL] Product found in response")
+      console.log("✅ [PRODUCT DETAIL] Product name:", data.product.name)
+      console.log("✅ [PRODUCT DETAIL] Product ID:", data.product.id)
+      console.log("✅ [PRODUCT DETAIL] Product price:", data.product.price)
       return data.product
     }
 
-    console.log("❌ No product in response")
+    console.log("❌ [PRODUCT DETAIL] No product in response or success=false")
+    console.log("❌ [PRODUCT DETAIL] Data.success:", data.success)
+    console.log("❌ [PRODUCT DETAIL] Data.product:", data.product)
     return null
   } catch (error) {
-    console.error("❌ API fetch error:", error)
+    console.error("❌ [PRODUCT DETAIL] API fetch error:", error)
+    console.error("❌ [PRODUCT DETAIL] Error name:", error.name)
+    console.error("❌ [PRODUCT DETAIL] Error message:", error.message)
+    console.error("❌ [PRODUCT DETAIL] Error stack:", error.stack)
     return null
   }
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  console.log("📄 Product page başlatılıyor, params:", params)
+  console.log("📄 [PRODUCT PAGE] Sayfa başlatılıyor...")
+  console.log("📄 [PRODUCT PAGE] Params:", JSON.stringify(params, null, 2))
+  console.log("📄 [PRODUCT PAGE] Params.id:", params.id)
 
   try {
+    console.log("🔍 [PRODUCT PAGE] API çağrısı başlatılıyor...")
+
     // API'den ürünü çek
     const product = await getProductFromAPI(params.id)
 
+    console.log("🔍 [PRODUCT PAGE] API çağrısı tamamlandı")
+    console.log("🔍 [PRODUCT PAGE] Product result:", product ? "BULUNDU" : "BULUNAMADI")
+
     if (!product) {
-      console.log("❌ Ürün bulunamadı")
+      console.log("❌ [PRODUCT PAGE] Ürün bulunamadı - 404 sayfası gösteriliyor")
       return (
         <div className="container mx-auto px-4 py-8">
           <Button variant="outline" className="mb-6" asChild>
@@ -93,7 +122,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             </div>
             <h1 className="text-2xl font-bold mb-4">Ürün Bulunamadı</h1>
-            <p className="text-gray-600 mb-6">Aradığınız ürün mevcut değil veya kaldırılmış olabilir.</p>
+            <p className="text-gray-600 mb-2">Aradığınız ürün mevcut değil veya kaldırılmış olabilir.</p>
+            <p className="text-sm text-gray-500 mb-6">Aranan ID: {params.id}</p>
             <div className="space-y-4">
               <Button asChild>
                 <Link href="/products">Tüm Ürünleri Görüntüle</Link>
@@ -109,7 +139,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
       )
     }
 
-    console.log("✅ Kullanılacak ürün:", product.name)
+    console.log("✅ [PRODUCT PAGE] Ürün bulundu, normalize ediliyor...")
+    console.log("✅ [PRODUCT PAGE] Ürün adı:", product.name)
 
     // Veritabanı formatını normalize et
     const normalizedProduct = {
@@ -141,6 +172,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
       isCustomDesign: product.id === "custom-design" || product.isCustomDesign,
     }
 
+    console.log("✅ [PRODUCT PAGE] Normalize edilmiş ürün:", JSON.stringify(normalizedProduct, null, 2))
+
     // İndirim hesapla
     const discountPercentage = normalizedProduct.originalPrice
       ? Math.round(
@@ -148,8 +181,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
         )
       : 0
 
+    console.log("✅ [PRODUCT PAGE] Sayfa render ediliyor...")
+
     return (
       <div className="container mx-auto px-4 py-8">
+        {/* Debug bilgisi - sadece development'ta göster */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-4 p-4 bg-yellow-100 rounded text-sm">
+            <strong>🐛 Debug:</strong> ID: {params.id} | Ürün: {normalizedProduct.name} | API Çalıştı: ✅
+          </div>
+        )}
+
         {/* Geri Dön Butonu */}
         <Button variant="outline" className="mb-6" asChild>
           <Link href="/products">
@@ -168,7 +210,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 alt={normalizedProduct.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  console.log("❌ Görsel yüklenemedi:", normalizedProduct.image)
+                  console.log("❌ [PRODUCT PAGE] Görsel yüklenemedi:", normalizedProduct.image)
                   e.currentTarget.src = "/placeholder.svg?height=400&width=400"
                 }}
               />
@@ -387,37 +429,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Benzer Ürünler */}
-        <section>
-          <h2 className="text-2xl font-bold mb-6">Benzer Ürünler</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <div className="aspect-square bg-gray-100">
-                  <img
-                    src={`/placeholder.svg?height=200&width=200&query=nfc+bracelet+${i}`}
-                    alt="Benzer Ürün"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium mb-2 line-clamp-1">NFC Bileklik Model {i}</h3>
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold">₺{(199 + i * 50).toLocaleString()}</span>
-                    <Badge variant="outline" className="text-xs">
-                      Yeni
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
       </div>
     )
   } catch (error) {
-    console.error("❌ Product page genel hatası:", error)
+    console.error("❌ [PRODUCT PAGE] Genel hata:", error)
+    console.error("❌ [PRODUCT PAGE] Error name:", error.name)
+    console.error("❌ [PRODUCT PAGE] Error message:", error.message)
+    console.error("❌ [PRODUCT PAGE] Error stack:", error.stack)
 
     return (
       <div className="container mx-auto px-4 py-8">

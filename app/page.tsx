@@ -90,28 +90,9 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        console.log("🔍 Anasayfada ürünler çekiliyor...")
         const response = await fetch("/api/products?limit=20")
-
         if (response.ok) {
-          const data = await response.json()
-          console.log("✅ API'den gelen veri:", data)
-
-          let products = []
-
-          // API'den gelen veriyi kontrol et
-          if (Array.isArray(data)) {
-            products = data
-          } else if (data.products && Array.isArray(data.products)) {
-            products = data.products
-          } else if (data.success && data.products) {
-            products = data.products
-          } else {
-            console.log("❌ Beklenmeyen veri formatı")
-            products = []
-          }
-
-          console.log("✅ Veritabanından gelen ürünler:", products)
+          const products = await response.json()
 
           // Kendin Tasarla ürününü ekle
           const customDesignProduct: Product = {
@@ -129,42 +110,15 @@ export default function HomePage() {
             featured: true,
           }
 
-          // Ürünleri Product tipine dönüştür - VERİTABANINDAKİ İSİMLERİ AYNEN KULLAN
-          const convertedProducts = products.map((p: any) => ({
-            id: p.id?.toString() || p.product_id?.toString(),
-            name: p.name || p.product_name, // Veritabanındaki ismi aynen kullan
-            price: Number(p.price) || 0,
-            image: p.primary_image || p.image || "/placeholder.svg?height=300&width=300",
-            description: p.description || "",
-            nfcEnabled: p.nfc_enabled || false,
-            stock: p.stock || 0,
-            category: p.category_name || p.category || "Genel",
-            rating: p.rating || 4.5,
-            featured: p.featured || false,
-          }))
-
-          console.log("✅ Dönüştürülmüş ürünler:", convertedProducts)
-
-          // Öne çıkan ürünleri filtrele
-          let featured = convertedProducts.filter((p: Product) => p.featured)
-
-          // Eğer öne çıkan ürün yoksa, ilk 3 ürünü al
-          if (featured.length === 0) {
-            featured = convertedProducts.slice(0, 3)
-          } else {
-            // En fazla 3 öne çıkan ürün al
-            featured = featured.slice(0, 3)
-          }
-
-          // Kendin Tasarla'yı başa ekle
-          const finalFeatured = [customDesignProduct, ...featured]
-
-          setFeaturedProducts(finalFeatured)
-          console.log("✅ Öne çıkan ürünler ayarlandı:", finalFeatured)
-        } else {
-          console.log("❌ API hatası:", response.status)
-          // Sadece Kendin Tasarla ürününü göster
-          const customDesignProduct: Product = {
+          // Öne çıkan ürünleri filtrele ve kendin tasarla'yı başa ekle
+          const featured = products.filter((p: Product) => p.featured).slice(0, 3)
+          setFeaturedProducts([customDesignProduct, ...featured])
+        }
+      } catch (error) {
+        console.error("Ürünler yüklenirken hata:", error)
+        // Fallback ürünler
+        const fallbackProducts: Product[] = [
+          {
             id: "custom-design",
             name: "Kendin Tasarla",
             price: 0,
@@ -177,27 +131,39 @@ export default function HomePage() {
             rating: 5,
             isCustomDesign: true,
             featured: true,
-          }
-          setFeaturedProducts([customDesignProduct])
-        }
-      } catch (error) {
-        console.error("❌ Ürünler yüklenirken hata:", error)
-        // Sadece Kendin Tasarla ürününü göster
-        const customDesignProduct: Product = {
-          id: "custom-design",
-          name: "Kendin Tasarla",
-          price: 0,
-          image: "/placeholder.svg?height=300&width=300",
-          description:
-            "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
-          nfcEnabled: true,
-          stock: 999,
-          category: "Özel Tasarım",
-          rating: 5,
-          isCustomDesign: true,
-          featured: true,
-        }
-        setFeaturedProducts([customDesignProduct])
+          },
+          {
+            id: "1",
+            name: "Premium NFC Deri Bileklik",
+            price: 299,
+            image: "/placeholder.svg?height=300&width=300",
+            description: "Gerçek deri ve premium NFC teknolojisi ile özel anılarınızı paylaşın.",
+            nfcEnabled: true,
+            stock: 15,
+            featured: true,
+          },
+          {
+            id: "2",
+            name: "Spor NFC Silikon Bileklik",
+            price: 199,
+            image: "/placeholder.svg?height=300&width=300",
+            description: "Su geçirmez silikon malzeme ile aktif yaşam tarzınıza uygun.",
+            nfcEnabled: true,
+            stock: 8,
+            featured: true,
+          },
+          {
+            id: "3",
+            name: "Lüks NFC Metal Bileklik",
+            price: 499,
+            image: "/placeholder.svg?height=300&width=300",
+            description: "Paslanmaz çelik ve şık tasarım ile özel günleriniz için.",
+            nfcEnabled: true,
+            stock: 3,
+            featured: true,
+          },
+        ]
+        setFeaturedProducts(fallbackProducts)
       } finally {
         setLoading(false)
       }
@@ -309,11 +275,9 @@ export default function HomePage() {
           <p className="text-xl mb-8 text-blue-100">
             İlk NFC bilekliğinizi sipariş edin ve teknolojinin gücünü keşfedin.
           </p>
-          <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100" asChild>
-            <Link href="/products">
-              <Truck className="h-5 w-5 mr-2" />
-              Ürünleri İncele
-            </Link>
+          <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
+            <Truck className="h-5 w-5 mr-2" />
+            Ücretsiz Kargo ile Sipariş Ver
           </Button>
         </div>
       </section>
