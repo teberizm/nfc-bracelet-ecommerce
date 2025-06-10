@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/request"
 import { verifyAdminToken } from "@/lib/auth"
 import { getAdminById } from "@/lib/database"
 
@@ -8,9 +8,9 @@ export async function GET(request: Request) {
   try {
     console.log("Admin me API çağrısı başladı")
 
+    // Admin token'ını doğrula
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Admin me: Authorization header eksik")
       return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
     }
 
@@ -18,35 +18,32 @@ export async function GET(request: Request) {
     const adminPayload = await verifyAdminToken(token)
 
     if (!adminPayload) {
-      console.log("Admin me: Token geçersiz")
       return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
-    console.log("Admin me: Token doğrulandı, admin bilgileri çekiliyor...")
+    console.log("Admin ID:", adminPayload.adminId)
 
-    // Admin bilgilerini veritabanından çek
+    // Admin bilgilerini çek
     const admin = await getAdminById(adminPayload.adminId)
 
     if (!admin) {
-      console.log("Admin me: Admin bulunamadı")
       return NextResponse.json({ success: false, message: "Admin bulunamadı" }, { status: 404 })
     }
 
-    console.log("Admin me: Admin bilgileri başarıyla çekildi")
+    // Hassas bilgileri çıkar
+    const { password_hash, ...adminData } = admin
+
+    console.log("Admin bilgileri çekildi:", adminData.email)
 
     return NextResponse.json({
       success: true,
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        created_at: admin.created_at,
-        last_login: admin.last_login,
-      },
+      admin: adminData,
     })
   } catch (error) {
-    console.error("Admin me error:", error)
-    return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
+    console.error("Admin me hatası:", error)
+    return NextResponse.json(
+      { success: false, message: "Admin bilgileri çekilirken hata oluştu", error: error.message },
+      { status: 500 },
+    )
   }
 }

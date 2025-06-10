@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/request"
 import { verifyAdminToken } from "@/lib/auth"
-import { sql } from "@vercel/postgres"
+import { sql } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
 
@@ -43,27 +43,24 @@ export async function GET(request: Request) {
         p.primary_image,
         p.is_active,
         p.nfc_enabled,
+        p.featured,
         p.created_at,
         c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = true
     `
 
-    const params: any[] = []
-    const conditions: string[] = []
+    const params = []
 
     if (search) {
-      conditions.push(`(p.name ILIKE $${params.length + 1} OR c.name ILIKE $${params.length + 1})`)
+      query += ` AND (p.name ILIKE $${params.length + 1} OR c.name ILIKE $${params.length + 1})`
       params.push(`%${search}%`)
     }
 
     if (category) {
-      conditions.push(`c.slug = $${params.length + 1}`)
+      query += ` AND c.slug = $${params.length + 1}`
       params.push(category)
-    }
-
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(" AND ")}`
     }
 
     // Sıralama
@@ -79,9 +76,9 @@ export async function GET(request: Request) {
     query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
     params.push(limit, offset)
 
-    const result = await sql.query(query, params)
+    const result = await sql(query, ...params)
 
-    const products = result.rows.map((row) => ({
+    const products = result.map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.slug,
@@ -91,6 +88,7 @@ export async function GET(request: Request) {
       primary_image: row.primary_image,
       is_active: row.is_active,
       nfc_enabled: row.nfc_enabled,
+      featured: row.featured,
       created_at: row.created_at,
     }))
 
@@ -102,6 +100,9 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("Admin products hatası:", error)
-    return NextResponse.json({ success: false, message: "Ürünler çekilirken hata oluştu" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "Ürünler çekilirken hata oluştu", error: error.message },
+      { status: 500 },
+    )
   }
 }

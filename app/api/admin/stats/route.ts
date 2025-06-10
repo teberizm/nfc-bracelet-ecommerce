@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { verifyAdminToken } from "@/lib/auth"
-import { sql } from "@vercel/postgres"
+import { sql } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
 
@@ -11,7 +11,6 @@ export async function GET(request: Request) {
     // Admin token'ını doğrula
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Admin stats: Authorization header eksik")
       return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
     }
 
@@ -19,78 +18,70 @@ export async function GET(request: Request) {
     const adminPayload = await verifyAdminToken(token)
 
     if (!adminPayload) {
-      console.log("Admin stats: Token geçersiz")
       return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
-    console.log("Admin stats: Token doğrulandı, istatistikler çekiliyor...")
+    console.log("Admin doğrulandı, istatistikler çekiliyor...")
 
-    // İstatistikleri veritabanından çek
-    const [
-      usersResult,
-      ordersResult,
-      revenueResult,
-      pendingOrdersResult,
-      deliveredOrdersResult,
-      productsResult,
-      nfcContentResult,
-    ] = await Promise.all([
-      // Toplam kullanıcı sayısı
-      sql`SELECT COUNT(*) as count FROM users`,
-
-      // Toplam sipariş sayısı
-      sql`SELECT COUNT(*) as count FROM orders`,
-
-      // Toplam gelir
-      sql`SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status = 'delivered'`,
-
-      // Bekleyen siparişler
-      sql`SELECT COUNT(*) as count FROM orders WHERE status = 'pending'`,
-
-      // Teslim edilen siparişler
-      sql`SELECT COUNT(*) as count FROM orders WHERE status = 'delivered'`,
-
-      // Toplam ürün sayısı
-      sql`SELECT COUNT(*) as count FROM products WHERE is_active = true`,
-
-      // Aktif NFC içerik sayısı
-      sql`SELECT COUNT(*) as count FROM nfc_content WHERE is_active = true`,
-    ])
-
-    // Aylık büyüme hesapla (basit bir hesaplama)
-    const currentMonth = new Date().getMonth() + 1
-    const currentYear = new Date().getFullYear()
-
-    const currentMonthOrders = await sql`
-      SELECT COUNT(*) as count 
-      FROM orders 
-      WHERE EXTRACT(MONTH FROM created_at) = ${currentMonth} 
-      AND EXTRACT(YEAR FROM created_at) = ${currentYear}
+    // Toplam kullanıcı sayısı
+    const totalUsersResult = await sql`
+      SELECT COUNT(*) as count FROM users WHERE is_active = true
     `
+    const totalUsers = Number.parseInt(totalUsersResult[0].count)
 
-    const lastMonthOrders = await sql`
-      SELECT COUNT(*) as count 
-      FROM orders 
-      WHERE EXTRACT(MONTH FROM created_at) = ${currentMonth - 1 || 12} 
-      AND EXTRACT(YEAR FROM created_at) = ${currentMonth === 1 ? currentYear - 1 : currentYear}
+    // Toplam sipariş sayısı
+    const totalOrdersResult = await sql`
+      SELECT COUNT(*) as count FROM orders
     `
+    const totalOrders = Number.parseInt(totalOrdersResult[0].count)
 
-    const currentCount = Number.parseInt(currentMonthOrders.rows[0]?.count || "0")
-    const lastCount = Number.parseInt(lastMonthOrders.rows[0]?.count || "0")
-    const monthlyGrowth = lastCount > 0 ? Math.round(((currentCount - lastCount) / lastCount) * 100) : 0
+    // Toplam gelir
+    const totalRevenueResult = await sql`
+      SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status != 'cancelled'
+    `
+    const totalRevenue = Number.parseFloat(totalRevenueResult[0].total)
+
+    // Bekleyen siparişler
+    const pendingOrdersResult = await sql`
+      SELECT COUNT(*) as count FROM orders WHERE status = 'pending'
+    `
+    const pendingOrders = Number.parseInt(pendingOrdersResult[0].count)
+
+    // Teslim edilen siparişler
+    const deliveredOrdersResult = await sql`
+      SELECT COUNT(*) as count FROM orders WHERE status = 'delivered'
+    `
+    const deliveredOrders = Number.parseInt(deliveredOrdersResult[0].count)
+
+    // Bu ay eklenen kullanıcılar
+    const thisMonthUsersResult = await sql`
+      SELECT COUNT(*) as count FROM users 
+      WHERE is_active = true 
+      AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    `
+    const thisMonthUsers = Number.parseInt(thisMonthUsersResult[0].count)
+
+    // Geçen ay eklenen kullanıcılar
+    const lastMonthUsersResult = await sql`
+      SELECT COUNT(*) as count FROM users 
+      WHERE is_active = true 
+      AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+    `
+    const lastMonthUsers = Number.parseInt(lastMonthUsersResult[0].count)
+
+    // Kullanıcı büyüme oranı
+    const userGrowthRate = lastMonthUsers > 0 ? ((thisMonthUsers - lastMonthUsers) / lastMonthUsers) * 100 : 0
 
     const stats = {
-      totalUsers: Number.parseInt(usersResult.rows[0]?.count || "0"),
-      totalOrders: Number.parseInt(ordersResult.rows[0]?.count || "0"),
-      totalRevenue: Number.parseFloat(revenueResult.rows[0]?.total || "0"),
-      pendingOrders: Number.parseInt(pendingOrdersResult.rows[0]?.count || "0"),
-      deliveredOrders: Number.parseInt(deliveredOrdersResult.rows[0]?.count || "0"),
-      totalProducts: Number.parseInt(productsResult.rows[0]?.count || "0"),
-      activeNFCContent: Number.parseInt(nfcContentResult.rows[0]?.count || "0"),
-      monthlyGrowth: monthlyGrowth,
+      totalUsers,
+      totalOrders,
+      totalRevenue,
+      pendingOrders,
+      deliveredOrders,
+      userGrowthRate: Math.round(userGrowthRate * 100) / 100,
     }
 
-    console.log("Admin stats başarıyla çekildi:", stats)
+    console.log("İstatistikler hazırlandı:", stats)
 
     return NextResponse.json({
       success: true,
@@ -98,6 +89,9 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("Admin stats hatası:", error)
-    return NextResponse.json({ success: false, message: "İstatistikler çekilirken hata oluştu" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "İstatistikler çekilirken hata oluştu", error: error.message },
+      { status: 500 },
+    )
   }
 }
