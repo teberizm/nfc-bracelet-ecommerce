@@ -4,24 +4,21 @@ import { verifyToken } from "@/lib/auth"
 
 export async function GET(request: Request) {
   try {
-    // Token'ı al
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ success: false, message: "Token gerekli" }, { status: 401 })
     }
 
-    const token = authHeader.split(" ")[1]
+    const token = authHeader.substring(7)
+    const payload = await verifyToken(token)
 
-    // Token'ı doğrula
-    const decoded = await verifyToken(token)
-    if (!decoded || !decoded.userId) {
-      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
+    if (!payload || !payload.userId) {
+      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
-    // Kullanıcı bilgilerini al
-    const user = await getUserById(decoded.userId)
+    const user = await getUserById(payload.userId)
     if (!user) {
-      return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
+      return NextResponse.json({ success: false, message: "Kullanıcı bulunamadı" }, { status: 404 })
     }
 
     return NextResponse.json({
@@ -36,7 +33,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error("Error in /api/auth/me:", error)
-    return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
+    console.error("Me API error:", error)
+    return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
   }
 }

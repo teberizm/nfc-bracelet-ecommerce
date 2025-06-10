@@ -7,6 +7,8 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, password } = body
 
+    console.log("Login attempt:", email)
+
     if (!email || !password) {
       return NextResponse.json({ success: false, message: "Email ve şifre gereklidir" }, { status: 400 })
     }
@@ -14,14 +16,20 @@ export async function POST(request: Request) {
     // Kullanıcıyı e-posta ile bul
     const user = await getUserByEmail(email)
     if (!user) {
+      console.log("User not found:", email)
       return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
+
+    console.log("User found:", user.id)
 
     // Şifreyi kontrol et
     const isPasswordValid = await comparePassword(password, user.password_hash)
     if (!isPasswordValid) {
+      console.log("Invalid password for user:", email)
       return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
+
+    console.log("Password valid, generating token")
 
     // JWT token oluştur
     const token = await generateToken({ userId: user.id })
@@ -41,6 +49,6 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Login error:", error)
-    return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Sunucu hatası: " + error.message }, { status: 500 })
   }
 }

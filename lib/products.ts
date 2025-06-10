@@ -23,7 +23,7 @@ export interface Product {
   createdAt: string
 }
 
-// Tüm ürünleri getir
+// Tüm ürünleri getir - SADECE VERİTABANINDAN
 export async function getProducts(limit = 50, offset = 0): Promise<Product[]> {
   try {
     const products = await getAllProducts(limit, offset)
@@ -34,7 +34,7 @@ export async function getProducts(limit = 50, offset = 0): Promise<Product[]> {
   }
 }
 
-// Slug ile ürün getir
+// Slug ile ürün getir - SADECE VERİTABANINDAN
 export async function getProductById(slug: string): Promise<Product | null> {
   try {
     const product = await getProductBySlug(slug)
@@ -45,7 +45,7 @@ export async function getProductById(slug: string): Promise<Product | null> {
   }
 }
 
-// Kategoriye göre ürünleri getir
+// Kategoriye göre ürünleri getir - SADECE VERİTABANINDAN
 export async function getRelatedProducts(productId: string, categorySlug: string, limit = 4): Promise<Product[]> {
   try {
     const category = await getCategoryBySlug(categorySlug)
@@ -76,8 +76,10 @@ function formatProduct(dbProduct: any): Product {
     stock: dbProduct.stock || 0,
     rating: Number.parseFloat(dbProduct.rating) || 0,
     reviewCount: dbProduct.review_count || 0,
-    images: dbProduct.images || [dbProduct.primary_image || "/placeholder.svg"],
-    features: dbProduct.features || [],
+    images: Array.isArray(dbProduct.images)
+      ? dbProduct.images.filter(Boolean)
+      : [dbProduct.primary_image || "/placeholder.svg?height=400&width=400"],
+    features: Array.isArray(dbProduct.features) ? dbProduct.features.filter(Boolean) : [],
     specifications: dbProduct.specifications || {},
     nfcEnabled: dbProduct.nfc_enabled || false,
     nfcFeatures: dbProduct.nfc_features || [],
@@ -88,7 +90,7 @@ function formatProduct(dbProduct: any): Product {
   }
 }
 
-// Arama fonksiyonu
+// Arama fonksiyonu - SADECE VERİTABANINDAN
 export async function searchProducts(query: string, limit = 20): Promise<Product[]> {
   try {
     const products = await getAllProducts(limit, 0)
@@ -104,3 +106,6 @@ export async function searchProducts(query: string, limit = 20): Promise<Product
     return []
   }
 }
+
+// Statik products array'ini kaldır - artık kullanılmayacak
+// export const products = [...] // KALDIRILDI
