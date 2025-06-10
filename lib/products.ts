@@ -4,7 +4,7 @@ import { getAllProducts as getProductsFromDB } from "@/lib/database"
 const fallbackProducts = [
   {
     id: "1",
-    name: "Premium NFC Deri Bileklik",
+    name: "Premium NFC Deri Bileklikds",
     slug: "premium-nfc-deri-bileklik",
     price: 299,
     primary_image: "/placeholder.svg?height=300&width=300",
@@ -19,7 +19,7 @@ const fallbackProducts = [
   },
   {
     id: "2",
-    name: "Spor NFC Silikon Bileklik",
+    name: "Spor NFC Silikon Bileklissk",
     slug: "spor-nfc-silikon-bileklik",
     price: 199,
     primary_image: "/placeholder.svg?height=300&width=300",
