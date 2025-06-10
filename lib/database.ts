@@ -126,6 +126,8 @@ export async function getProductBySlug(slug: string) {
 
 export async function getProductById(id: string) {
   try {
+    console.log("🔍 Database: Getting product by ID:", id)
+
     const result = await sql`
       SELECT p.*, c.name as category_name, c.slug as category_slug,
              array_agg(DISTINCT pi.image_url) FILTER (WHERE pi.image_url IS NOT NULL) as images,
@@ -140,9 +142,19 @@ export async function getProductById(id: string) {
       GROUP BY p.id, c.id
       LIMIT 1
     `
+
+    console.log("🔍 Database: Query result length:", result.length)
+    if (result.length > 0) {
+      console.log("🔍 Database: Found product:", {
+        id: result[0].id,
+        name: result[0].name,
+        price: result[0].price,
+      })
+    }
+
     return result[0] || null
   } catch (error) {
-    console.error("Error getting product by id:", error)
+    console.error("❌ Database: Error getting product by id:", error)
     throw error
   }
 }
