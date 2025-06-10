@@ -50,10 +50,12 @@ export default function UserDetailPage() {
   const fetchUserData = async () => {
     try {
       setIsLoading(true)
-      console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
+      console.log("API çağrısı yapılıyor:", `/api/admin/users/${params.id}`)
 
       const response = await fetch(`/api/admin/users/${params.id}`)
       const data = await response.json()
+
+      console.log("API yanıtı:", data)
 
       if (!response.ok) {
         throw new Error(data.message || "Kullanıcı detayı çekilemedi")
@@ -62,7 +64,7 @@ export default function UserDetailPage() {
       if (data.success) {
         setUser(data.user)
         setOrders(data.orders || [])
-        console.log("Kullanıcı detayı başarıyla yüklendi:", data.user.name)
+        console.log("Kullanıcı detayı yüklendi:", data.user.name)
       } else {
         throw new Error(data.message)
       }
@@ -105,7 +107,6 @@ export default function UserDetailPage() {
       if (data.success) {
         setIsEditing(false)
         toast.success("Kullanıcı bilgileri güncellendi")
-        console.log("Kullanıcı başarıyla güncellendi")
       } else {
         throw new Error(data.message)
       }

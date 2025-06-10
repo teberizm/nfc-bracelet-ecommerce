@@ -5,7 +5,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
 
-    // Önce sadece kullanıcı bilgilerini çek
+    // Kullanıcı bilgilerini çek - kullanıcılar listesi ile aynı mantık
     const userResult = await sql`
       SELECT 
         id,
@@ -20,40 +20,28 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     `
 
     console.log("Kullanıcı sorgu sonucu:", userResult)
-    console.log("Kullanıcı sorgu sonucu tipi:", typeof userResult)
-    console.log("Kullanıcı sorgu sonucu uzunluğu:", userResult?.length)
 
     if (!userResult || userResult.length === 0) {
-      console.log("Kullanıcı bulunamadı")
       return NextResponse.json({ success: false, message: "Kullanıcı bulunamadı" }, { status: 404 })
     }
 
     const user = userResult[0]
-    console.log("Bulunan kullanıcı:", user)
 
-    // Basit sipariş sayısı
+    // Sipariş sayısını çek
     const orderCountResult = await sql`
       SELECT COUNT(*) as count
       FROM orders 
       WHERE user_id = ${params.id}
     `
 
-    console.log("Sipariş sayısı sonucu:", orderCountResult)
-
-    const orderCount = orderCountResult[0]?.count || 0
-
-    // Toplam harcama
+    // Toplam harcamayı çek
     const totalSpentResult = await sql`
       SELECT COALESCE(SUM(total_amount), 0) as total
       FROM orders 
       WHERE user_id = ${params.id}
     `
 
-    console.log("Toplam harcama sonucu:", totalSpentResult)
-
-    const totalSpent = totalSpentResult[0]?.total || 0
-
-    // Basit sipariş listesi
+    // Siparişleri çek
     const ordersResult = await sql`
       SELECT 
         id,
@@ -63,35 +51,36 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       FROM orders
       WHERE user_id = ${params.id}
       ORDER BY created_at DESC
-      LIMIT 10
     `
 
-    console.log("Siparişler sonucu:", ordersResult)
+    console.log("Sipariş sayısı:", orderCountResult[0]?.count || 0)
+    console.log("Toplam harcama:", totalSpentResult[0]?.total || 0)
+    console.log("Siparişler:", ordersResult)
 
-    // Kullanıcı verilerini normalize et
+    // Verileri normalize et - kullanıcılar listesi ile aynı format
     const userData = {
       id: user.id,
       name: user.name || "",
       email: user.email || "",
       phone: user.phone || "",
       createdAt: user.created_at,
-      lastLogin: null, // Şimdilik null
+      lastLogin: null,
       status: user.status || "active",
-      totalOrders: Number(orderCount) || 0,
-      totalSpent: Number(totalSpent) || 0,
+      totalOrders: Number(orderCountResult[0]?.count || 0),
+      totalSpent: Number(totalSpentResult[0]?.total || 0),
       notes: user.notes || "",
     }
 
     // Siparişleri normalize et
-    const orders = (ordersResult || []).map((order) => ({
+    const orders = ordersResult.map((order) => ({
       id: order.id,
-      date: new Date(order.created_at).toISOString().split("T")[0],
-      status: order.status || "pending",
-      total: Number(order.total_amount) || 0,
-      products: ["Ürün bilgisi yükleniyor..."], // Şimdilik basit
+      date: new Date(order.created_at).toLocaleDateString("tr-TR"),
+      status: order.status,
+      total: Number(order.total_amount || 0),
+      products: ["NFC Bileklik"], // Basit ürün adı
     }))
 
-    console.log("Normalize edilmiş kullanıcı verisi:", userData)
+    console.log("Normalize edilmiş kullanıcı:", userData)
     console.log("Normalize edilmiş siparişler:", orders)
 
     return NextResponse.json({
@@ -100,10 +89,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       orders: orders,
     })
   } catch (error: any) {
-    console.error("Kullanıcı detayı çekilirken hata:", error)
-    console.error("Hata mesajı:", error.message)
-    console.error("Hata stack:", error.stack)
-
+    console.error("Kullanıcı detayı hatası:", error)
     return NextResponse.json(
       {
         success: false,
@@ -120,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
     const { name, email, phone, status, notes } = body
 
-    console.log("Kullanıcı güncelleniyor, ID:", params.id)
+    console.log("Kullanıcı güncelleniyor:", { name, email, phone, status })
 
     await sql`
       UPDATE users 
@@ -133,18 +119,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       WHERE id = ${params.id}
     `
 
-    console.log("Kullanıcı başarıyla güncellendi")
-
     return NextResponse.json({
       success: true,
-      message: "Kullanıcı başarıyla güncellendi",
+      message: "Kullanıcı güncellendi",
     })
   } catch (error: any) {
-    console.error("Kullanıcı güncellenirken hata:", error)
+    console.error("Kullanıcı güncelleme hatası:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Kullanıcı güncellenirken hata oluştu",
+        message: "Güncelleme hatası",
         error: error.message,
       },
       { status: 500 },
