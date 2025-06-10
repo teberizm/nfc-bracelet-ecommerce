@@ -31,69 +31,104 @@ export async function GET(request: Request) {
 
     console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
 
-    // Önce basit bir sorgu ile test edelim
-    let query = `SELECT id, email, first_name, last_name, phone, created_at, is_active FROM users`
-    const params = []
+    // Neon SQL tagged template literal kullanarak sorgu
+    let result
 
     if (search) {
-      query += ` WHERE (first_name ILIKE $1 OR last_name ILIKE $1 OR email ILIKE $1)`
-      params.push(`%${search}%`)
-    }
-
-    // Sıralama
-    const validSortColumns = ["created_at", "first_name", "email"]
-    const validSortOrders = ["asc", "desc"]
-
-    if (validSortColumns.includes(sortBy) && validSortOrders.includes(sortOrder)) {
-      query += ` ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`
+      console.log("Arama ile kullanıcılar çekiliyor:", search)
+      result = await sql`
+        SELECT 
+          u.id, 
+          u.email, 
+          u.first_name, 
+          u.last_name, 
+          u.phone, 
+          u.created_at, 
+          u.is_active,
+          COUNT(o.id) as total_orders,
+          COALESCE(SUM(o.total_amount), 0) as total_spent
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+        GROUP BY u.id
+        ORDER BY u.${sql(sortBy)} ${sql.unsafe(sortOrder.toUpperCase())}
+        LIMIT ${limit} OFFSET ${offset}
+      `
     } else {
-      query += ` ORDER BY created_at DESC`
-    }
-
-    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-    params.push(limit, offset)
-
-    console.log("SQL sorgusu:", query)
-    console.log("Parametreler:", params)
-
-    // SQL sorgusunu çalıştır
-    const result = await sql(query, ...params)
-
-    console.log("Veritabanı sonucu tipi:", typeof result)
-    console.log("Veritabanı sonucu:", result)
-    console.log("Result.rows var mı?", !!result.rows)
-    console.log("Result array mi?", Array.isArray(result))
-
-    // Sonucu normalize et
-    let rows = []
-    if (Array.isArray(result)) {
-      rows = result
-    } else if (result && result.rows && Array.isArray(result.rows)) {
-      rows = result.rows
-    } else if (result && Array.isArray(result.rows)) {
-      rows = result.rows
-    } else {
-      console.error("Beklenmeyen veritabanı sonucu formatı:", result)
-      return NextResponse.json({ success: false, message: "Veritabanı sonucu formatı hatalı" }, { status: 500 })
-    }
-
-    console.log("İşlenecek satır sayısı:", rows.length)
-
-    // Kullanıcıları formatla
-    const users = rows.map((row) => {
-      console.log("İşlenen satır:", row)
-      return {
-        id: row.id,
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone: row.phone,
-        created_at: row.created_at,
-        is_active: row.is_active,
-        total_orders: 0, // Şimdilik basit tutalım
-        total_spent: 0, // Şimdilik basit tutalım
+      console.log("Tüm kullanıcılar çekiliyor")
+      if (sortBy === "created_at") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id
+          ORDER BY u.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (sortBy === "first_name") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id
+          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id
+          ORDER BY u.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `
       }
-    })
+    }
+
+    console.log("Veritabanı sonucu:", result)
+    console.log("Sonuç tipi:", typeof result)
+    console.log("Array mi?", Array.isArray(result))
+
+    // Neon'dan gelen sonuç zaten array formatında
+    const users = result.map((row) => ({
+      id: row.id,
+      email: row.email,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      phone: row.phone,
+      created_at: row.created_at,
+      is_active: row.is_active,
+      total_orders: Number.parseInt(row.total_orders || "0"),
+      total_spent: Number.parseFloat(row.total_spent || "0"),
+    }))
 
     console.log(`${users.length} kullanıcı formatlandı`)
 
