@@ -1,14 +1,13 @@
 import { notFound } from "next/navigation"
-import { getProductById, getRelatedProducts } from "@/lib/products"
-import { ProductGallery } from "@/components/product-gallery"
-import { ProductCard } from "@/components/product-card"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Share2, Star, Zap, Shield, Truck, RotateCcw, ArrowLeft } from "lucide-react"
 import { AddToCartButton } from "@/components/add-to-cart-button"
-import Link from "next/link"
+import { ProductGallery } from "@/components/product-gallery"
+import { sql } from "@/lib/database"
 
 interface ProductPageProps {
   params: {
@@ -16,23 +15,80 @@ interface ProductPageProps {
   }
 }
 
+// Veritabanından ürün bilgilerini getiren fonksiyon
+async function getProduct(id: string) {
+  console.log("Fetching product with ID:", id)
+
+  try {
+    // Ürün bilgilerini getir
+    const product = await sql`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.id = ${id} AND p.is_active = true
+      LIMIT 1
+    `
+
+    if (!product || product.length === 0) {
+      console.log("Product not found in database")
+      return null
+    }
+
+    // Ürün görselleri
+    const images = await sql`
+      SELECT image_url FROM product_images 
+      WHERE product_id = ${id}
+      ORDER BY sort_order
+    `
+
+    // Ürün özellikleri
+    const features = await sql`
+      SELECT feature_name FROM product_features
+      WHERE product_id = ${id}
+      ORDER BY sort_order
+    `
+
+    // Ürün teknik özellikleri
+    const specs = await sql`
+      SELECT spec_name, spec_value FROM product_specifications
+      WHERE product_id = ${id}
+      ORDER BY sort_order
+    `
+
+    // Veriyi düzenle
+    const productData = {
+      ...product[0],
+      images: images.map((img: any) => img.image_url),
+      features: features.map((f: any) => f.feature_name),
+      specifications: specs.reduce((acc: any, spec: any) => {
+        acc[spec.spec_name] = spec.spec_value
+        return acc
+      }, {}),
+    }
+
+    console.log("Product found:", productData.name)
+    return productData
+  } catch (error) {
+    console.error("Error fetching product:", error)
+    return null
+  }
+}
+
 export default async function ProductPage({ params }: ProductPageProps) {
-  console.log("Product ID from params:", params.id)
+  console.log("Rendering product page for ID:", params.id)
 
   // Veritabanından ürünü çek
-  const product = await getProductById(params.id)
-  console.log("Found product:", product)
+  const product = await getProduct(params.id)
 
+  // Ürün bulunamadıysa 404 sayfası göster
   if (!product) {
     console.log("Product not found, showing 404")
     notFound()
   }
 
-  // İlgili ürünleri çek
-  const relatedProducts = await getRelatedProducts(product.id, product.category, 4)
-
-  const discountPercentage = product.originalPrice
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+  // İndirim oranı hesapla
+  const discountPercentage = product.original_price
+    ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : 0
 
   return (
@@ -49,9 +105,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
         {/* Ürün Görselleri */}
         <div>
           <ProductGallery
-            images={product.images || [product.image || "/placeholder.svg?height=400&width=400"]}
+            images={
+              product.images?.length > 0
+                ? product.images
+                : [product.primary_image || "/placeholder.svg?height=400&width=400"]
+            }
             productName={product.name}
-            video360={product.video360}
+            video360={product.video_360_url}
           />
         </div>
 
@@ -59,8 +119,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="space-y-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary">{product.category}</Badge>
-              {product.nfcEnabled && (
+              <Badge variant="secondary">{product.category_name}</Badge>
+              {product.nfc_enabled && (
                 <Badge className="bg-blue-100 text-blue-800">
                   <Zap className="w-3 h-3 mr-1" />
                   NFC Özellikli
@@ -80,7 +140,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 ))}
               </div>
               <span className="text-sm text-gray-600">
-                {(product.rating || 4.5).toFixed(1)} ({product.reviewCount || 0} değerlendirme)
+                {(product.rating || 4.5).toFixed(1)} ({product.review_count || 0} değerlendirme)
               </span>
             </div>
           </div>
@@ -88,9 +148,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="space-y-2">
             <div className="flex items-center gap-4">
               <span className="text-3xl font-bold text-primary">₺{product.price.toLocaleString()}</span>
-              {product.originalPrice && (
+              {product.original_price && (
                 <>
-                  <span className="text-xl text-gray-500 line-through">₺{product.originalPrice.toLocaleString()}</span>
+                  <span className="text-xl text-gray-500 line-through">₺{product.original_price.toLocaleString()}</span>
                   <Badge variant="destructive">{discountPercentage}% İndirim</Badge>
                 </>
               )}
@@ -100,28 +160,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           <p className="text-gray-700 leading-relaxed">{product.description}</p>
 
-          {/* NFC Özellikleri */}
-          {product.nfcEnabled && product.nfcFeatures && product.nfcFeatures.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-blue-600" />
-                  NFC Özellikleri
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {product.nfcFeatures.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Sepete Ekle */}
           <div className="space-y-4">
             <AddToCartButton
@@ -130,7 +168,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 name: product.name,
                 price: product.price,
                 stock: product.stock || 10,
-                images: product.images || [product.image || "/placeholder.svg?height=400&width=400"],
+                image: product.primary_image || "/placeholder.svg?height=400&width=400",
               }}
             />
             <div className="flex gap-2">
@@ -180,7 +218,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <CardContent className="pt-6">
               {product.features && product.features.length > 0 ? (
                 <ul className="space-y-3">
-                  {product.features.map((feature, index) => (
+                  {product.features.map((feature: string, index: number) => (
                     <li key={index} className="flex items-start gap-3">
                       <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
                       <span>{feature}</span>
@@ -225,18 +263,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* İlgili Ürünler */}
-      {relatedProducts.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-bold mb-6">İlgili Ürünler</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {relatedProducts.map((relatedProduct) => (
-              <ProductCard key={relatedProduct.id} product={relatedProduct} />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }

@@ -60,12 +60,16 @@ export function ProductCard({ product }: ProductCardProps) {
     )
   }
 
-  // Normal ürünler için standart görünüm
+  // Normal ürünler için standart görünüm - ID ile link oluştur
   return (
     <Link href={`/product/${product.id}`}>
       <Card className="overflow-hidden h-full transition-all duration-200 hover:shadow-lg">
         <div className="aspect-square relative bg-gray-100">
-          <img src={product.image || "/placeholder.svg"} alt={product.name} className="object-cover w-full h-full" />
+          <img
+            src={product.image || "/placeholder.svg?height=400&width=400&query=bileklik"}
+            alt={product.name}
+            className="object-cover w-full h-full"
+          />
           {product.nfcEnabled && (
             <Badge className="absolute top-2 right-2 bg-blue-600">
               <Zap className="h-3 w-3 mr-1" />

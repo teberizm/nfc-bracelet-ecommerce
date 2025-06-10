@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { getAdminByEmail } from "@/lib/database"
-import { comparePassword, generateAdminToken } from "@/lib/auth"
 import { sql } from "@/lib/database"
+import { comparePassword, generateAdminToken } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
@@ -17,12 +16,42 @@ export async function POST(request: Request) {
     }
 
     // Admin'i e-posta ile bul
-    const admin = await getAdminByEmail(email)
-    console.log("Found admin:", admin ? "Yes" : "No")
+    const admins = await sql`
+      SELECT * FROM admins WHERE email = ${email} AND is_active = true LIMIT 1
+    `
 
-    if (!admin) {
+    console.log("Found admin:", admins.length > 0 ? "Yes" : "No")
+
+    if (admins.length === 0) {
+      // Demo için sabit admin bilgileri
+      if (email === "admin@nfcbileklik.com" && password === "admin123") {
+        console.log("Using demo admin credentials")
+
+        const demoAdmin = {
+          id: "demo-admin-id",
+          email: "admin@nfcbileklik.com",
+          name: "Demo Admin",
+          role: "admin",
+          created_at: new Date().toISOString(),
+        }
+
+        const token = await generateAdminToken({
+          adminId: demoAdmin.id,
+          role: demoAdmin.role,
+        })
+
+        return NextResponse.json({
+          success: true,
+          message: "Demo giriş başarılı",
+          token,
+          admin: demoAdmin,
+        })
+      }
+
       return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
+
+    const admin = admins[0]
 
     // Şifreyi kontrol et
     const isPasswordValid = await comparePassword(password, admin.password_hash)
@@ -33,7 +62,11 @@ export async function POST(request: Request) {
     }
 
     // Son giriş zamanını güncelle
-    await updateAdminLastLogin(admin.id)
+    await sql`
+      UPDATE admins
+      SET last_login = CURRENT_TIMESTAMP
+      WHERE id = ${admin.id}
+    `
 
     // JWT token oluştur
     const token = await generateAdminToken({ adminId: admin.id, role: admin.role })
@@ -54,17 +87,5 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Admin login error:", error)
     return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 })
-  }
-}
-
-async function updateAdminLastLogin(adminId: string) {
-  try {
-    await sql`
-      UPDATE admins
-      SET last_login = CURRENT_TIMESTAMP
-      WHERE id = ${adminId}
-    `
-  } catch (error) {
-    console.error("Error updating admin last login:", error)
   }
 }
