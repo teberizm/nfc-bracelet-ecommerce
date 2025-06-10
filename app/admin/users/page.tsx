@@ -26,6 +26,7 @@ export default function AdminUsersPage() {
   const { state } = useAdmin()
   const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState({
     search: "",
     sortBy: "created_at",
@@ -41,13 +42,19 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
+      setError(null)
       const token = localStorage.getItem("adminToken")
-      if (!token) return
+      if (!token) {
+        setError("Admin token bulunamadı")
+        return
+      }
 
       const params = new URLSearchParams()
       if (filters.search) params.append("search", filters.search)
       params.append("sortBy", filters.sortBy)
       params.append("sortOrder", filters.sortOrder)
+
+      console.log("API çağrısı yapılıyor:", `/api/admin/users?${params}`)
 
       const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
@@ -55,12 +62,24 @@ export default function AdminUsersPage() {
         },
       })
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("API hatası:", response.status, errorText)
+        throw new Error(`API hatası: ${response.status} ${errorText}`)
+      }
+
       const data = await response.json()
+      console.log("API yanıtı:", data)
+
       if (data.success) {
-        setUsers(data.users)
+        setUsers(data.users || [])
+      } else {
+        throw new Error(data.message || "Bilinmeyen hata")
       }
     } catch (error) {
-      console.error("Error fetching users:", error)
+      console.error("Kullanıcıları çekerken hata:", error)
+      setError(`Kullanıcılar yüklenirken hata oluştu: ${error.message}`)
+      setUsers([])
     } finally {
       setLoading(false)
     }
@@ -127,62 +146,73 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      {/* Kullanıcı Listesi */}
-      <div className="grid gap-4">
-        {users.map((user) => (
-          <Card key={user.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">
-                        {user.first_name} {user.last_name}
-                      </h3>
-                      {user.is_active ? (
-                        <Badge variant="default">Aktif</Badge>
-                      ) : (
-                        <Badge variant="secondary">Pasif</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">{user.email}</p>
-                    {user.phone && <p className="text-sm text-gray-500">{user.phone}</p>}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <ShoppingBag className="h-4 w-4" />
-                      <span>{user.total_orders} sipariş</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">{user.total_spent.toLocaleString("tr-TR")} ₺</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{new Date(user.created_at).toLocaleDateString("tr-TR")}</span>
-                    </div>
-                  </div>
-                  <Button size="sm" className="mt-2" asChild>
-                    <Link href={`/admin/users/${user.id}`}>Detay</Link>
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {users.length === 0 && (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-gray-500">Henüz kullanıcı bulunmuyor.</p>
+      {/* Hata Mesajı */}
+      {error && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-600">{error}</p>
           </CardContent>
         </Card>
       )}
+
+      {/* Kullanıcı Listesi */}
+      <div className="grid gap-4">
+        {users.length > 0 ? (
+          users.map((user) => (
+            <Card key={user.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">
+                          {user.first_name} {user.last_name}
+                        </h3>
+                        {user.is_active ? (
+                          <Badge variant="default">Aktif</Badge>
+                        ) : (
+                          <Badge variant="secondary">Pasif</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                      {user.phone && <p className="text-sm text-gray-500">{user.phone}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <ShoppingBag className="h-4 w-4" />
+                        <span>{user.total_orders} sipariş</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">{user.total_spent.toLocaleString("tr-TR")} ₺</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(user.created_at).toLocaleDateString("tr-TR")}</span>
+                      </div>
+                    </div>
+                    <Button size="sm" className="mt-2" asChild>
+                      <Link href={`/admin/users/${user.id}`}>Detay</Link>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-gray-500">
+                {error ? "Hata nedeniyle kullanıcılar yüklenemedi." : "Henüz kullanıcı bulunmuyor."}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
