@@ -112,14 +112,27 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
     const { name, email, phone, status } = body
 
-    console.log("Kullanıcı güncelleniyor:", { name, email, phone, status })
+    console.log("=== Kullanıcı güncelleme başladı ===")
+    console.log("Gelen veriler:", { name, email, phone, status })
+    console.log("Kullanıcı ID:", params.id)
 
     // İsmi parçalara ayır
     const nameParts = name.split(" ")
     const firstName = nameParts[0] || ""
     const lastName = nameParts.slice(1).join(" ") || ""
 
-    await sql`
+    console.log("Parçalanmış isim:", { firstName, lastName })
+
+    // Önce mevcut veriyi kontrol et
+    const beforeUpdate = await sql`
+      SELECT first_name, last_name, email, phone, is_active 
+      FROM users 
+      WHERE id = ${params.id}
+    `
+    console.log("Güncelleme öncesi veri:", beforeUpdate[0])
+
+    // Güncelleme yap
+    const updateResult = await sql`
       UPDATE users 
       SET 
         first_name = ${firstName},
@@ -131,12 +144,28 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       WHERE id = ${params.id}
     `
 
+    console.log("UPDATE sorgu sonucu:", updateResult)
+
+    // Güncelleme sonrası veriyi kontrol et
+    const afterUpdate = await sql`
+      SELECT first_name, last_name, email, phone, is_active, updated_at
+      FROM users 
+      WHERE id = ${params.id}
+    `
+    console.log("Güncelleme sonrası veri:", afterUpdate[0])
+
+    console.log("=== Kullanıcı güncelleme tamamlandı ===")
+
     return NextResponse.json({
       success: true,
       message: "Kullanıcı güncellendi",
+      before: beforeUpdate[0],
+      after: afterUpdate[0],
     })
   } catch (error: any) {
-    console.error("Kullanıcı güncelleme hatası:", error)
+    console.error("=== Kullanıcı güncelleme hatası ===")
+    console.error("Hata:", error)
+    console.error("Hata mesajı:", error.message)
     return NextResponse.json(
       {
         success: false,

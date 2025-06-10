@@ -82,7 +82,13 @@ export default function UserDetailPage() {
 
     try {
       setIsSaving(true)
-      console.log("Kullanıcı güncelleniyor:", user.name)
+      console.log("=== Kullanıcı güncelleme başladı ===")
+      console.log("Gönderilecek veriler:", {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+      })
 
       const response = await fetch(`/api/admin/users/${params.id}`, {
         method: "PUT",
@@ -94,11 +100,11 @@ export default function UserDetailPage() {
           email: user.email,
           phone: user.phone,
           status: user.status,
-          notes: user.notes,
         }),
       })
 
       const data = await response.json()
+      console.log("Güncelleme API yanıtı:", data)
 
       if (!response.ok) {
         throw new Error(data.message || "Kullanıcı güncellenemedi")
@@ -107,6 +113,10 @@ export default function UserDetailPage() {
       if (data.success) {
         setIsEditing(false)
         toast.success("Kullanıcı bilgileri güncellendi")
+        console.log("Güncelleme başarılı, sayfa yenileniyor...")
+
+        // Sayfayı yenile - güncel verileri çek
+        await fetchUserData()
       } else {
         throw new Error(data.message)
       }
@@ -339,22 +349,24 @@ export default function UserDetailPage() {
             </Card>
           </div>
 
-          {/* Notlar */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Notlar</CardTitle>
-              <CardDescription>Bu kullanıcı hakkında özel notlar</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={user.notes || ""}
-                onChange={(e) => setUser({ ...user, notes: e.target.value })}
-                disabled={!isEditing}
-                placeholder="Kullanıcı hakkında notlar ekleyin..."
-                rows={4}
-              />
-            </CardContent>
-          </Card>
+          {/* Notlar - Şimdilik gizli */}
+          {user.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Notlar</CardTitle>
+                <CardDescription>Bu kullanıcı hakkında özel notlar</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={user.notes || ""}
+                  onChange={(e) => setUser({ ...user, notes: e.target.value })}
+                  disabled={!isEditing}
+                  placeholder="Kullanıcı hakkında notlar ekleyin..."
+                  rows={4}
+                />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="orders" className="space-y-6">
