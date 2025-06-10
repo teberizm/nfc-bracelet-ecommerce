@@ -5,16 +5,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
 
-    // Kullanıcı bilgilerini çek - kullanıcılar listesi ile aynı mantık
+    // Kullanıcı bilgilerini çek - gerçek sütun isimleri ile
     const userResult = await sql`
       SELECT 
         id,
-        name,
         email,
+        first_name,
+        last_name,
         phone,
+        avatar_url,
+        email_verified,
+        is_active,
         created_at,
-        status,
-        notes
+        updated_at
       FROM users 
       WHERE id = ${params.id}
     `
@@ -57,18 +60,21 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log("Toplam harcama:", totalSpentResult[0]?.total || 0)
     console.log("Siparişler:", ordersResult)
 
-    // Verileri normalize et - kullanıcılar listesi ile aynı format
+    // Verileri normalize et - gerçek sütunlara göre
     const userData = {
       id: user.id,
-      name: user.name || "",
+      name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
       email: user.email || "",
       phone: user.phone || "",
+      avatar: user.avatar_url || "",
+      emailVerified: user.email_verified || false,
       createdAt: user.created_at,
-      lastLogin: null,
-      status: user.status || "active",
+      updatedAt: user.updated_at,
+      lastLogin: null, // Bu sütun yok, null yapıyoruz
+      status: user.is_active ? "active" : "inactive",
       totalOrders: Number(orderCountResult[0]?.count || 0),
       totalSpent: Number(totalSpentResult[0]?.total || 0),
-      notes: user.notes || "",
+      notes: "", // Bu sütun yok, boş string yapıyoruz
     }
 
     // Siparişleri normalize et
@@ -104,18 +110,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const { name, email, phone, status, notes } = body
+    const { name, email, phone, status } = body
 
     console.log("Kullanıcı güncelleniyor:", { name, email, phone, status })
+
+    // İsmi parçalara ayır
+    const nameParts = name.split(" ")
+    const firstName = nameParts[0] || ""
+    const lastName = nameParts.slice(1).join(" ") || ""
 
     await sql`
       UPDATE users 
       SET 
-        name = ${name},
+        first_name = ${firstName},
+        last_name = ${lastName},
         email = ${email},
         phone = ${phone},
-        status = ${status},
-        notes = ${notes}
+        is_active = ${status === "active"},
+        updated_at = NOW()
       WHERE id = ${params.id}
     `
 
