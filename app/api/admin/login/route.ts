@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server"
 import { getAdminByEmail } from "@/lib/database"
 import { comparePassword, generateAdminToken } from "@/lib/auth"
-import { sql } from "@vercel/postgres"
+import { sql } from "@/lib/database"
+
+export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { email, password } = body
+
+    console.log("Admin login attempt:", { email, password: "***" })
 
     if (!email || !password) {
       return NextResponse.json({ success: false, message: "Email ve şifre gereklidir" }, { status: 400 })
@@ -14,12 +18,16 @@ export async function POST(request: Request) {
 
     // Admin'i e-posta ile bul
     const admin = await getAdminByEmail(email)
+    console.log("Found admin:", admin ? "Yes" : "No")
+
     if (!admin) {
       return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
 
     // Şifreyi kontrol et
     const isPasswordValid = await comparePassword(password, admin.password_hash)
+    console.log("Password valid:", isPasswordValid)
+
     if (!isPasswordValid) {
       return NextResponse.json({ success: false, message: "Geçersiz e-posta veya şifre" }, { status: 401 })
     }
