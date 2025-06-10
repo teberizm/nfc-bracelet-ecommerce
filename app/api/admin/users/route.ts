@@ -1,4 +1,4 @@
-import { NextResponse } from "next/request"
+import { NextResponse } from "next/server"
 import { verifyAdminToken } from "@/lib/auth"
 import { getAllUsersForAdmin } from "@/lib/database"
 
