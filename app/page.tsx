@@ -90,12 +90,12 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        console.log("Anasayfada ürünler çekiliyor...")
+        console.log("🔍 Anasayfada ürünler çekiliyor...")
         const response = await fetch("/api/products?limit=20")
 
         if (response.ok) {
           const data = await response.json()
-          console.log("API'den gelen veri:", data)
+          console.log("✅ API'den gelen veri:", data)
 
           let products = []
 
@@ -107,27 +107,11 @@ export default function HomePage() {
           } else if (data.success && data.products) {
             products = data.products
           } else {
-            console.log("Beklenmeyen veri formatı, fallback kullanılıyor")
+            console.log("❌ Beklenmeyen veri formatı")
             products = []
           }
 
-          console.log("İşlenen ürünler:", products)
-
-          // Kendin Tasarla ürününü ekle
-          const customDesignProduct: Product = {
-            id: "custom-design",
-            name: "Kendin Tasarla",
-            price: 0,
-            image: "/placeholder.svg?height=300&width=300",
-            description:
-              "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
-            nfcEnabled: true,
-            stock: 999,
-            category: "Özel Tasarım",
-            rating: 5,
-            isCustomDesign: true,
-            featured: true,
-          }
+          console.log("✅ İşlenen ürünler:", products)
 
           // Ürünleri Product tipine dönüştür
           const convertedProducts = products.map((p: any) => ({
@@ -144,67 +128,25 @@ export default function HomePage() {
           }))
 
           // Öne çıkan ürünleri filtrele
-          const featured = convertedProducts.filter((p: Product) => p.featured).slice(0, 3)
+          let featured = convertedProducts.filter((p: Product) => p.featured)
 
-          // Eğer öne çıkan ürün yoksa, ilk 3 ürünü al
-          const finalFeatured = featured.length > 0 ? featured : convertedProducts.slice(0, 3)
+          // Eğer öne çıkan ürün yoksa, ilk 4 ürünü al
+          if (featured.length === 0) {
+            featured = convertedProducts.slice(0, 4)
+          }
 
-          setFeaturedProducts([customDesignProduct, ...finalFeatured])
-          console.log("Öne çıkan ürünler ayarlandı:", [customDesignProduct, ...finalFeatured])
+          // En fazla 4 ürün göster
+          const finalFeatured = featured.slice(0, 4)
+
+          setFeaturedProducts(finalFeatured)
+          console.log("✅ Öne çıkan ürünler ayarlandı:", finalFeatured)
         } else {
-          console.log("API hatası, fallback ürünler kullanılıyor")
-          throw new Error("API request failed")
+          console.log("❌ API hatası:", response.status)
+          setFeaturedProducts([])
         }
       } catch (error) {
-        console.error("Ürünler yüklenirken hata:", error)
-        // Fallback ürünler
-        const fallbackProducts: Product[] = [
-          {
-            id: "custom-design",
-            name: "Kendin Tasarla",
-            price: 0,
-            image: "/placeholder.svg?height=300&width=300",
-            description:
-              "Hayalinizdeki tasarımı gerçeğe dönüştürün! Bize görseli gönderin, size özel fiyat teklifi verelim.",
-            nfcEnabled: true,
-            stock: 999,
-            category: "Özel Tasarım",
-            rating: 5,
-            isCustomDesign: true,
-            featured: true,
-          },
-          {
-            id: "1",
-            name: "Premium NFC Deri Bileklik",
-            price: 299,
-            image: "/placeholder.svg?height=300&width=300",
-            description: "Gerçek deri ve premium NFC teknolojisi ile özel anılarınızı paylaşın.",
-            nfcEnabled: true,
-            stock: 15,
-            featured: true,
-          },
-          {
-            id: "2",
-            name: "Spor NFC Silikon Bileklik",
-            price: 199,
-            image: "/placeholder.svg?height=300&width=300",
-            description: "Su geçirmez silikon malzeme ile aktif yaşam tarzınıza uygun.",
-            nfcEnabled: true,
-            stock: 8,
-            featured: true,
-          },
-          {
-            id: "3",
-            name: "Lüks NFC Metal Bileklik",
-            price: 499,
-            image: "/placeholder.svg?height=300&width=300",
-            description: "Paslanmaz çelik ve şık tasarım ile özel günleriniz için.",
-            nfcEnabled: true,
-            stock: 3,
-            featured: true,
-          },
-        ]
-        setFeaturedProducts(fallbackProducts)
+        console.error("❌ Ürünler yüklenirken hata:", error)
+        setFeaturedProducts([])
       } finally {
         setLoading(false)
       }
@@ -299,11 +241,22 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : featuredProducts.length > 0 ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-12 h-12 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Henüz Ürün Yok</h3>
+              <p className="text-gray-600 mb-6">Veritabanında henüz ürün bulunmuyor.</p>
+              <Button asChild>
+                <Link href="/admin">Admin Paneline Git</Link>
+              </Button>
             </div>
           )}
         </div>
@@ -316,9 +269,11 @@ export default function HomePage() {
           <p className="text-xl mb-8 text-blue-100">
             İlk NFC bilekliğinizi sipariş edin ve teknolojinin gücünü keşfedin.
           </p>
-          <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
-            <Truck className="h-5 w-5 mr-2" />
-            Ücretsiz Kargo ile Sipariş Ver
+          <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100" asChild>
+            <Link href="/products">
+              <Truck className="h-5 w-5 mr-2" />
+              Ürünleri İncele
+            </Link>
           </Button>
         </div>
       </section>

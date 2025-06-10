@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,8 +35,6 @@ async function getProductFromAPI(id: string) {
 
     if (!response.ok) {
       console.log("❌ API response not ok:", response.status, response.statusText)
-      const errorText = await response.text()
-      console.log("❌ Error response:", errorText)
       return null
     }
 
@@ -57,82 +54,46 @@ async function getProductFromAPI(id: string) {
   }
 }
 
-// Demo ürün verisi (fallback)
-function getDemoProduct(id: string) {
-  console.log("🔄 Demo ürün aranıyor, ID:", id)
-
-  const demoProducts = {
-    "1": {
-      id: "1",
-      name: "Premium NFC Deri Bileklik",
-      description: "Gerçek deri ve premium NFC teknolojisi ile özel anılarınızı paylaşın.",
-      price: 299,
-      primary_image: "/placeholder.svg?height=400&width=400",
-      category_name: "Deri Bileklik",
-      nfc_enabled: true,
-      stock: 15,
-      rating: 4.8,
-      review_count: 24,
-    },
-    "2": {
-      id: "2",
-      name: "Spor NFC Silikon Bileklik",
-      description: "Su geçirmez silikon malzeme ile aktif yaşam tarzınıza uygun.",
-      price: 199,
-      primary_image: "/placeholder.svg?height=400&width=400",
-      category_name: "Silikon Bileklik",
-      nfc_enabled: true,
-      stock: 8,
-      rating: 4.6,
-      review_count: 18,
-    },
-    "3": {
-      id: "3",
-      name: "Lüks NFC Metal Bileklik",
-      description: "Paslanmaz çelik ve şık tasarım ile özel günleriniz için.",
-      price: 499,
-      primary_image: "/placeholder.svg?height=400&width=400",
-      category_name: "Metal Bileklik",
-      nfc_enabled: true,
-      stock: 3,
-      rating: 4.9,
-      review_count: 12,
-    },
-    "4": {
-      id: "4",
-      name: "Klasik NFC Deri Bileklik",
-      description: "Zamansız tasarım ve dayanıklı deri malzeme.",
-      price: 249,
-      primary_image: "/placeholder.svg?height=400&width=400",
-      category_name: "Deri Bileklik",
-      nfc_enabled: true,
-      stock: 12,
-      rating: 4.7,
-      review_count: 31,
-    },
-  }
-
-  const product = demoProducts[id as keyof typeof demoProducts] || null
-  console.log("🔄 Demo ürün sonucu:", product ? product.name : "Bulunamadı")
-  return product
-}
-
 export default async function ProductPage({ params }: ProductPageProps) {
   console.log("📄 Product page başlatılıyor, params:", params)
 
   try {
-    // Önce API'den dene
-    let product = await getProductFromAPI(params.id)
-
-    // API'den bulamazsa demo ürünleri dene
-    if (!product) {
-      console.log("🔄 API'den bulunamadı, demo ürünler deneniyor...")
-      product = getDemoProduct(params.id)
-    }
+    // Sadece API'den dene, demo ürün yok
+    const product = await getProductFromAPI(params.id)
 
     if (!product) {
-      console.log("❌ Hiçbir yerde ürün bulunamadı")
-      notFound()
+      console.log("❌ Ürün bulunamadı")
+      // notFound() çağırmak yerine hata sayfası göster
+      return (
+        <div className="container mx-auto px-4 py-8">
+          <Button variant="outline" className="mb-6" asChild>
+            <Link href="/products">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Ürünlere Geri Dön
+            </Link>
+          </Button>
+
+          <div className="text-center py-16">
+            <div className="mb-6">
+              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-12 h-12 text-gray-400" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold mb-4">Ürün Bulunamadı</h1>
+            <p className="text-gray-600 mb-6">Aradığınız ürün mevcut değil veya kaldırılmış olabilir.</p>
+            <div className="space-y-4">
+              <Button asChild>
+                <Link href="/products">Tüm Ürünleri Görüntüle</Link>
+              </Button>
+              <div>
+                <Button variant="outline" asChild>
+                  <Link href="/">Ana Sayfaya Dön</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
     }
 
     console.log("✅ Kullanılacak ürün:", product.name)
