@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
+import { sql } from "@/lib/database"
 import { v4 as uuidv4 } from "uuid"
 
 export const dynamic = "force-dynamic"
@@ -23,11 +23,11 @@ export async function GET() {
       ORDER BY p.created_at DESC
     `
 
-    console.log("✅ Ürünler başarıyla listelendi:", result.rows.length, "ürün")
+    console.log("✅ Ürünler başarıyla listelendi:", result.length, "ürün")
 
     return NextResponse.json({
       success: true,
-      products: result.rows,
+      products: result,
     })
   } catch (error) {
     console.error("❌ Ürün listeleme hatası:", error)
@@ -49,25 +49,46 @@ export async function POST(request: Request) {
     const productData = await request.json()
     console.log("📦 Ürün verisi alındı:", productData.name)
 
+    // Zorunlu alanları kontrol et
+    if (!productData.name || !productData.slug) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Ürün adı ve slug zorunludur",
+        },
+        { status: 400 },
+      )
+    }
+
     // Ürün ID'si oluştur
     const productId = uuidv4()
 
     // Ana ürün kaydını oluştur
-    const productResult = await sql`
+    await sql`
       INSERT INTO products (
         id, name, slug, description, short_description, price, original_price,
         stock, category_id, nfc_enabled, is_active, weight, dimensions, material,
-        featured, meta_title, meta_description, video_360_url, created_at, updated_at
+        featured, meta_title, meta_description, video_360_url
       ) VALUES (
-        ${productId}, ${productData.name}, ${productData.slug}, ${productData.description},
-        ${productData.short_description}, ${productData.price}, ${productData.original_price},
-        ${productData.stock}, ${productData.category_id || null}, ${productData.nfc_enabled},
-        ${productData.is_active}, ${productData.weight}, ${productData.dimensions},
-        ${productData.material}, ${productData.featured}, ${productData.meta_title},
-        ${productData.meta_description}, ${productData.video_360_url || null},
-        NOW(), NOW()
+        ${productId}, 
+        ${productData.name}, 
+        ${productData.slug}, 
+        ${productData.description || ""}, 
+        ${productData.short_description || ""}, 
+        ${productData.price || 0}, 
+        ${productData.original_price || null},
+        ${productData.stock || 0}, 
+        ${productData.category_id || null}, 
+        ${productData.nfc_enabled || false}, 
+        ${productData.is_active !== false}, 
+        ${productData.weight || ""}, 
+        ${productData.dimensions || ""}, 
+        ${productData.material || ""}, 
+        ${productData.featured || false}, 
+        ${productData.meta_title || null}, 
+        ${productData.meta_description || null}, 
+        ${productData.video_360_url || null}
       )
-      RETURNING id
     `
 
     console.log("✅ Ana ürün kaydedildi:", productId)
@@ -78,14 +99,16 @@ export async function POST(request: Request) {
 
       for (let i = 0; i < productData.images.length; i++) {
         const image = productData.images[i]
-        const imageId = uuidv4()
 
         await sql`
           INSERT INTO product_images (
-            id, product_id, image_url, alt_text, is_primary, sort_order, created_at
+            product_id, image_url, alt_text, is_primary, sort_order
           ) VALUES (
-            ${imageId}, ${productId}, ${image.image_url}, ${image.alt_text},
-            ${image.is_primary || i === 0}, ${image.sort_order || i}, NOW()
+            ${productId}, 
+            ${image.image_url}, 
+            ${image.alt_text || productData.name}, 
+            ${image.is_primary || i === 0}, 
+            ${image.sort_order || i}
           )
         `
       }
@@ -99,14 +122,14 @@ export async function POST(request: Request) {
 
       for (const feature of productData.features) {
         if (feature.feature_name && feature.feature_value) {
-          const featureId = uuidv4()
-
           await sql`
             INSERT INTO product_features (
-              id, product_id, feature_name, feature_value, sort_order, created_at
+              product_id, feature_name, feature_value, sort_order
             ) VALUES (
-              ${featureId}, ${productId}, ${feature.feature_name}, ${feature.feature_value},
-              ${feature.sort_order || 0}, NOW()
+              ${productId}, 
+              ${feature.feature_name}, 
+              ${feature.feature_value}, 
+              ${feature.sort_order || 0}
             )
           `
         }
@@ -121,14 +144,14 @@ export async function POST(request: Request) {
 
       for (const spec of productData.specifications) {
         if (spec.spec_name && spec.spec_value) {
-          const specId = uuidv4()
-
           await sql`
             INSERT INTO product_specifications (
-              id, product_id, spec_name, spec_value, sort_order, created_at
+              product_id, spec_name, spec_value, sort_order
             ) VALUES (
-              ${specId}, ${productId}, ${spec.spec_name}, ${spec.spec_value},
-              ${spec.sort_order || 0}, NOW()
+              ${productId}, 
+              ${spec.spec_name}, 
+              ${spec.spec_value}, 
+              ${spec.sort_order || 0}
             )
           `
         }
