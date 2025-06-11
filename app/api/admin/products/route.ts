@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     console.log("Ürünler çekiliyor:", { search, sortBy, sortOrder, limit, offset })
 
-    // Ana ürün sorgusu
+    // Basit ürün sorgusu
     let baseQuery = `
       SELECT 
         p.id,
@@ -53,8 +53,7 @@ export async function GET(request: Request) {
         p.featured,
         p.created_at,
         p.updated_at,
-        c.name as category_name,
-        (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = true LIMIT 1) as primary_image
+        c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       WHERE 1=1
@@ -64,7 +63,7 @@ export async function GET(request: Request) {
 
     // Arama filtresi
     if (search) {
-      baseQuery += ` AND (p.name ILIKE $${params.length + 1} OR c.name ILIKE $${params.length + 1} OR p.material ILIKE $${params.length + 1})`
+      baseQuery += ` AND (p.name ILIKE $${params.length + 1} OR COALESCE(c.name, '') ILIKE $${params.length + 1} OR p.material ILIKE $${params.length + 1})`
       params.push(`%${search}%`)
     }
 
@@ -91,87 +90,48 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, products: [] })
     }
 
-    // Her ürün için özellikler, resimler ve spesifikasyonları çek
-    const productsWithDetails = await Promise.all(
-      result.map(async (product) => {
+    // Ürünleri basit formatta döndür
+    const products = result
+      .map((product) => {
         try {
-          // Ürün özelliklerini çek
-          const features = await sql(
-            `SELECT id, feature_name, feature_value, sort_order 
-             FROM product_features 
-             WHERE product_id = $1 
-             ORDER BY sort_order ASC`,
-            product.id,
-          )
-
-          // Ürün resimlerini çek
-          const images = await sql(
-            `SELECT id, image_url, alt_text, is_primary, sort_order 
-             FROM product_images 
-             WHERE product_id = $1 
-             ORDER BY sort_order ASC`,
-            product.id,
-          )
-
-          // Ürün spesifikasyonlarını çek
-          const specifications = await sql(
-            `SELECT id, spec_name, spec_value, sort_order 
-             FROM product_specifications 
-             WHERE product_id = $1 
-             ORDER BY sort_order ASC`,
-            product.id,
-          )
-
           return {
             id: product.id,
-            name: product.name,
-            slug: product.slug,
-            description: product.description,
-            short_description: product.short_description,
-            price: Number.parseFloat(product.price),
+            name: product.name || "",
+            slug: product.slug || "",
+            description: product.description || "",
+            short_description: product.short_description || "",
+            price: product.price ? Number.parseFloat(product.price) : 0,
             original_price: product.original_price ? Number.parseFloat(product.original_price) : null,
-            stock: Number.parseInt(product.stock),
+            stock: product.stock ? Number.parseInt(product.stock) : 0,
             category_name: product.category_name || "Kategori Yok",
-            nfc_enabled: product.nfc_enabled,
-            is_active: product.is_active,
-            weight: product.weight,
-            dimensions: product.dimensions,
-            material: product.material,
-            rating: Number.parseFloat(product.rating || 0),
-            review_count: Number.parseInt(product.review_count || 0),
-            sales_count: Number.parseInt(product.sales_count || 0),
-            featured: product.featured,
+            nfc_enabled: Boolean(product.nfc_enabled),
+            is_active: Boolean(product.is_active),
+            weight: product.weight || "",
+            dimensions: product.dimensions || "",
+            material: product.material || "",
+            rating: product.rating ? Number.parseFloat(product.rating) : 0,
+            review_count: product.review_count ? Number.parseInt(product.review_count) : 0,
+            sales_count: product.sales_count ? Number.parseInt(product.sales_count) : 0,
+            featured: Boolean(product.featured),
             created_at: product.created_at,
             updated_at: product.updated_at,
-            primary_image: product.primary_image,
-            features: Array.isArray(features) ? features : [],
-            images: Array.isArray(images) ? images : [],
-            specifications: Array.isArray(specifications) ? specifications : [],
-          }
-        } catch (error) {
-          console.error(`Ürün detayları çekilirken hata (${product.id}):`, error)
-          return {
-            ...product,
-            price: Number.parseFloat(product.price),
-            original_price: product.original_price ? Number.parseFloat(product.original_price) : null,
-            stock: Number.parseInt(product.stock),
-            category_name: product.category_name || "Kategori Yok",
-            rating: Number.parseFloat(product.rating || 0),
-            review_count: Number.parseInt(product.review_count || 0),
-            sales_count: Number.parseInt(product.sales_count || 0),
+            primary_image: "/placeholder.svg?height=120&width=120&text=" + encodeURIComponent(product.name || "Ürün"),
             features: [],
             images: [],
             specifications: [],
           }
+        } catch (error) {
+          console.error("Ürün işlenirken hata:", error)
+          return null
         }
-      }),
-    )
+      })
+      .filter(Boolean) // null değerleri filtrele
 
-    console.log(`${productsWithDetails.length} ürün çekildi`)
+    console.log(`${products.length} ürün başarıyla işlendi`)
 
     const response = NextResponse.json({
       success: true,
-      products: productsWithDetails,
+      products,
     })
 
     // Cache kontrolü
@@ -183,7 +143,11 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Admin products hatası:", error)
     return NextResponse.json(
-      { success: false, message: "Ürünler çekilirken hata oluştu", error: error.message },
+      {
+        success: false,
+        message: "Ürünler çekilirken hata oluştu",
+        error: error.message || "Bilinmeyen hata",
+      },
       { status: 500 },
     )
   }
