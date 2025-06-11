@@ -62,12 +62,13 @@ export default function UserDetailPage() {
       }
 
       if (data.success) {
-        console.log("Yeni kullanıcı verisi:", data.user)
-        console.log("Eski kullanıcı verisi:", user)
+        console.log("API'den gelen yeni veri:", data.user)
+        console.log("Mevcut state'deki eski veri:", user)
 
         setUser(data.user)
         setOrders(data.orders || [])
-        console.log("State güncellendi - Kullanıcı adı:", data.user.name)
+
+        console.log("State güncellendi - Yeni kullanıcı adı:", data.user.name)
       } else {
         throw new Error(data.message)
       }
