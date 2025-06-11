@@ -7,60 +7,60 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useAdmin } from "@/contexts/admin-context"
 
-// Dashboard kaldırıldı, İstatistikler en başa alındı
-const menuItems = [
-  {
-    title: "İstatistikler",
-    icon: BarChart3,
-    href: "/admin",
-    exact: true,
-  },
-  {
-    title: "Kullanıcılar",
-    icon: Users,
-    href: "/admin/users",
-    badge: "147",
-  },
-  {
-    title: "Ürünler",
-    icon: Package,
-    href: "/admin/products",
-    badge: "4",
-  },
-  {
-    title: "Siparişler",
-    icon: ShoppingCart,
-    href: "/admin/orders",
-    badge: "12",
-  },
-  {
-    title: "NFC İçerik",
-    icon: Zap,
-    href: "/admin/nfc-content",
-    badge: "45",
-  },
-  {
-    title: "Temalar",
-    icon: Palette,
-    href: "/admin/themes",
-  },
-  {
-    title: "Ayarlar",
-    icon: Settings,
-    href: "/admin/settings",
-  },
-  {
-    title: "Çıkış Yap",
-    icon: LogOut,
-    href: "#",
-    onClick: "logoutAdmin",
-    className: "text-red-600 hover:bg-red-50",
-  },
-]
-
 export function AdminSidebar() {
   const pathname = usePathname()
-  const { logoutAdmin } = useAdmin()
+  const { logoutAdmin, stats } = useAdmin()
+
+  // Menü öğelerini stats verisiyle güncelle
+  const menuItems = [
+    {
+      title: "İstatistikler",
+      icon: BarChart3,
+      href: "/admin",
+      exact: true,
+    },
+    {
+      title: "Kullanıcılar",
+      icon: Users,
+      href: "/admin/users",
+      badge: stats?.totalUsers?.toString() || "0",
+    },
+    {
+      title: "Ürünler",
+      icon: Package,
+      href: "/admin/products",
+      badge: stats?.totalProducts?.toString() || "0",
+    },
+    {
+      title: "Siparişler",
+      icon: ShoppingCart,
+      href: "/admin/orders",
+      badge: stats?.totalOrders?.toString() || "0",
+    },
+    {
+      title: "NFC İçerik",
+      icon: Zap,
+      href: "/admin/nfc-content",
+      badge: stats?.activeNFCContent?.toString() || "0",
+    },
+    {
+      title: "Temalar",
+      icon: Palette,
+      href: "/admin/themes",
+    },
+    {
+      title: "Ayarlar",
+      icon: Settings,
+      href: "/admin/settings",
+    },
+    {
+      title: "Çıkış Yap",
+      icon: LogOut,
+      href: "#",
+      onClick: "logoutAdmin",
+      className: "text-red-600 hover:bg-red-50",
+    },
+  ]
 
   return (
     <div className="w-64 bg-white shadow-sm border-r">
