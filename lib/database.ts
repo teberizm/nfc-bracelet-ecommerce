@@ -1,13 +1,33 @@
 import { neon } from "@neondatabase/serverless"
 
+// Check if DATABASE_URL is set
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not set")
+  console.error("❌ DATABASE_URL environment variable is not set!")
+  console.error("Please add DATABASE_URL to your environment variables.")
+  throw new Error("DATABASE_URL environment variable is required")
 }
+
+console.log("✅ Database connection initialized")
 
 export const sql = neon(process.env.DATABASE_URL)
 
 export function getFreshConnection() {
-  return neon(process.env.DATABASE_URL as string)
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL environment variable is not set")
+  }
+  return neon(process.env.DATABASE_URL)
+}
+
+// Test database connection
+export async function testDatabaseConnection() {
+  try {
+    const result = await sql`SELECT 1 as test`
+    console.log("✅ Database connection test successful")
+    return true
+  } catch (error) {
+    console.error("❌ Database connection test failed:", error)
+    return false
+  }
 }
 
 // User functions
@@ -80,21 +100,48 @@ export async function getAdminById(id: string) {
   }
 }
 
-// Product functions
+// Product functions with better error handling
 export async function getAllProducts(limit = 50, offset = 0) {
   try {
     const result = await sql`
-      SELECT p.*, c.name as category_name, c.slug as category_slug,
-             array_agg(DISTINCT pi.image_url) FILTER (WHERE pi.image_url IS NOT NULL) as images,
-             array_agg(DISTINCT pf.feature_name) FILTER (WHERE pf.feature_name IS NOT NULL) as features,
-             json_object_agg(ps.spec_name, ps.spec_value) FILTER (WHERE ps.spec_name IS NOT NULL) as specifications
+      SELECT 
+        p.*,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pi.id,
+              'image_url', pi.image_url,
+              'alt_text', pi.alt_text,
+              'sort_order', pi.sort_order,
+              'is_primary', pi.is_primary
+            ) ORDER BY pi.sort_order, pi.id
+          ) FROM product_images pi WHERE pi.product_id = p.id),
+          '[]'::json
+        ) as images,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pf.id,
+              'feature_name', pf.feature_name,
+              'feature_value', pf.feature_value,
+              'sort_order', pf.sort_order
+            ) ORDER BY pf.sort_order, pf.id
+          ) FROM product_features pf WHERE pf.product_id = p.id),
+          '[]'::json
+        ) as features,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', ps.id,
+              'spec_name', ps.spec_name,
+              'spec_value', ps.spec_value,
+              'sort_order', ps.sort_order
+            ) ORDER BY ps.sort_order, ps.id
+          ) FROM product_specifications ps WHERE ps.product_id = p.id),
+          '[]'::json
+        ) as specifications
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      LEFT JOIN product_features pf ON p.id = pf.product_id
-      LEFT JOIN product_specifications ps ON p.id = ps.product_id
       WHERE p.is_active = true
-      GROUP BY p.id, c.id
       ORDER BY p.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `
@@ -108,17 +155,44 @@ export async function getAllProducts(limit = 50, offset = 0) {
 export async function getProductBySlug(slug: string) {
   try {
     const result = await sql`
-      SELECT p.*, c.name as category_name, c.slug as category_slug,
-             array_agg(DISTINCT pi.image_url) FILTER (WHERE pi.image_url IS NOT NULL) as images,
-             array_agg(DISTINCT pf.feature_name) FILTER (WHERE pf.feature_name IS NOT NULL) as features,
-             json_object_agg(ps.spec_name, ps.spec_value) FILTER (WHERE ps.spec_name IS NOT NULL) as specifications
+      SELECT 
+        p.*,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pi.id,
+              'image_url', pi.image_url,
+              'alt_text', pi.alt_text,
+              'sort_order', pi.sort_order,
+              'is_primary', pi.is_primary
+            ) ORDER BY pi.sort_order, pi.id
+          ) FROM product_images pi WHERE pi.product_id = p.id),
+          '[]'::json
+        ) as images,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pf.id,
+              'feature_name', pf.feature_name,
+              'feature_value', pf.feature_value,
+              'sort_order', pf.sort_order
+            ) ORDER BY pf.sort_order, pf.id
+          ) FROM product_features pf WHERE pf.product_id = p.id),
+          '[]'::json
+        ) as features,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', ps.id,
+              'spec_name', ps.spec_name,
+              'spec_value', ps.spec_value,
+              'sort_order', ps.sort_order
+            ) ORDER BY ps.sort_order, ps.id
+          ) FROM product_specifications ps WHERE ps.product_id = p.id),
+          '[]'::json
+        ) as specifications
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      LEFT JOIN product_features pf ON p.id = pf.product_id
-      LEFT JOIN product_specifications ps ON p.id = ps.product_id
       WHERE p.slug = ${slug} AND p.is_active = true
-      GROUP BY p.id, c.id
       LIMIT 1
     `
     return result[0] || null
@@ -131,17 +205,44 @@ export async function getProductBySlug(slug: string) {
 export async function getProductById(id: string) {
   try {
     const result = await sql`
-      SELECT p.*, c.name as category_name, c.slug as category_slug,
-             array_agg(DISTINCT pi.image_url) FILTER (WHERE pi.image_url IS NOT NULL) as images,
-             array_agg(DISTINCT pf.feature_name) FILTER (WHERE pf.feature_name IS NOT NULL) as features,
-             json_object_agg(ps.spec_name, ps.spec_value) FILTER (WHERE ps.spec_name IS NOT NULL) as specifications
+      SELECT 
+        p.*,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pi.id,
+              'image_url', pi.image_url,
+              'alt_text', pi.alt_text,
+              'sort_order', pi.sort_order,
+              'is_primary', pi.is_primary
+            ) ORDER BY pi.sort_order, pi.id
+          ) FROM product_images pi WHERE pi.product_id = p.id),
+          '[]'::json
+        ) as images,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pf.id,
+              'feature_name', pf.feature_name,
+              'feature_value', pf.feature_value,
+              'sort_order', pf.sort_order
+            ) ORDER BY pf.sort_order, pf.id
+          ) FROM product_features pf WHERE pf.product_id = p.id),
+          '[]'::json
+        ) as features,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', ps.id,
+              'spec_name', ps.spec_name,
+              'spec_value', ps.spec_value,
+              'sort_order', ps.sort_order
+            ) ORDER BY ps.sort_order, ps.id
+          ) FROM product_specifications ps WHERE ps.product_id = p.id),
+          '[]'::json
+        ) as specifications
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      LEFT JOIN product_features pf ON p.id = pf.product_id
-      LEFT JOIN product_specifications ps ON p.id = ps.product_id
       WHERE p.id = ${id} AND p.is_active = true
-      GROUP BY p.id, c.id
       LIMIT 1
     `
     return result[0] || null
@@ -151,20 +252,26 @@ export async function getProductById(id: string) {
   }
 }
 
+// Rest of the functions remain the same...
 export async function getProductsByCategory(categoryId: string, limit = 20, offset = 0) {
   try {
     const result = await sql`
-      SELECT p.*, c.name as category_name, c.slug as category_slug,
-             array_agg(DISTINCT pi.image_url) FILTER (WHERE pi.image_url IS NOT NULL) as images,
-             array_agg(DISTINCT pf.feature_name) FILTER (WHERE pf.feature_name IS NOT NULL) as features,
-             json_object_agg(ps.spec_name, ps.spec_value) FILTER (WHERE ps.spec_name IS NOT NULL) as specifications
+      SELECT 
+        p.*,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', pi.id,
+              'image_url', pi.image_url,
+              'alt_text', pi.alt_text,
+              'sort_order', pi.sort_order,
+              'is_primary', pi.is_primary
+            ) ORDER BY pi.sort_order, pi.id
+          ) FROM product_images pi WHERE pi.product_id = p.id),
+          '[]'::json
+        ) as images
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      LEFT JOIN product_features pf ON p.id = pf.product_id
-      LEFT JOIN product_specifications ps ON p.id = ps.product_id
       WHERE p.category_id = ${categoryId} AND p.is_active = true
-      GROUP BY p.id, c.id
       ORDER BY p.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `
@@ -240,7 +347,13 @@ export async function getCategoryBySlug(slug: string) {
 export async function getCartItems(userId: string) {
   try {
     const result = await sql`
-      SELECT ci.*, p.name, p.price, p.primary_image as image_url, p.stock, p.nfc_enabled
+      SELECT ci.*, p.name, p.price, p.stock, p.nfc_enabled,
+             COALESCE(
+               (SELECT pi.image_url FROM product_images pi 
+                WHERE pi.product_id = p.id AND pi.is_primary = true 
+                ORDER BY pi.sort_order LIMIT 1),
+               '/placeholder.svg?height=100&width=100&text=No+Image'
+             ) as image_url
       FROM cart_items ci
       JOIN products p ON ci.product_id = p.id
       WHERE ci.user_id = ${userId} AND p.is_active = true
@@ -255,13 +368,13 @@ export async function getCartItems(userId: string) {
 
 export async function addToCart(userId: string, productId: string, quantity: number) {
   try {
-    // Önce sepette var mı kontrol et
+    // Check if item already exists in cart
     const existing = await sql`
       SELECT * FROM cart_items WHERE user_id = ${userId} AND product_id = ${productId}
     `
 
     if (existing.length > 0) {
-      // Varsa miktarı artır
+      // Update quantity
       const result = await sql`
         UPDATE cart_items 
         SET quantity = quantity + ${quantity}, updated_at = CURRENT_TIMESTAMP
@@ -270,7 +383,7 @@ export async function addToCart(userId: string, productId: string, quantity: num
       `
       return result[0]
     } else {
-      // Yoksa yeni ekle
+      // Insert new item
       const result = await sql`
         INSERT INTO cart_items (user_id, product_id, quantity)
         VALUES (${userId}, ${productId}, ${quantity})
@@ -393,22 +506,23 @@ export async function getOrdersByUserId(userId: string) {
   try {
     const result = await sql`
       SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'product_id', oi.product_id,
-                 'product_name', oi.product_name,
-                 'product_image', oi.product_image,
-                 'quantity', oi.quantity,
-                 'unit_price', oi.unit_price,
-                 'total_price', oi.total_price,
-                 'nfc_enabled', oi.nfc_enabled
-               ) ORDER BY oi.created_at
+             COALESCE(
+               (SELECT json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'product_name', oi.product_name,
+                   'product_image', oi.product_image,
+                   'quantity', oi.quantity,
+                   'unit_price', oi.unit_price,
+                   'total_price', oi.total_price,
+                   'nfc_enabled', oi.nfc_enabled
+                 ) ORDER BY oi.created_at
+               ) FROM order_items oi WHERE oi.order_id = o.id),
+               '[]'::json
              ) as items
       FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
       WHERE o.user_id = ${userId}
-      GROUP BY o.id
       ORDER BY o.created_at DESC
     `
     return result
@@ -422,23 +536,24 @@ export async function getOrderById(orderId: string) {
   try {
     const result = await sql`
       SELECT o.*, u.first_name, u.last_name, u.email as user_email, u.phone as user_phone,
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'product_id', oi.product_id,
-                 'product_name', oi.product_name,
-                 'product_image', oi.product_image,
-                 'quantity', oi.quantity,
-                 'unit_price', oi.unit_price,
-                 'total_price', oi.total_price,
-                 'nfc_enabled', oi.nfc_enabled
-               ) ORDER BY oi.created_at
+             COALESCE(
+               (SELECT json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'product_name', oi.product_name,
+                   'product_image', oi.product_image,
+                   'quantity', oi.quantity,
+                   'unit_price', oi.unit_price,
+                   'total_price', oi.total_price,
+                   'nfc_enabled', oi.nfc_enabled
+                 ) ORDER BY oi.created_at
+               ) FROM order_items oi WHERE oi.order_id = o.id),
+               '[]'::json
              ) as items
       FROM orders o
       JOIN users u ON o.user_id = u.id
-      LEFT JOIN order_items oi ON o.id = oi.order_id
       WHERE o.id = ${orderId}
-      GROUP BY o.id, u.id
       LIMIT 1
     `
     return result[0] || null
@@ -489,31 +604,28 @@ export async function updateNFCContent(
   try {
     const updates = []
     const values = []
-    let paramIndex = 1
 
     if (contentData.theme) {
-      updates.push(`theme = $${paramIndex}`)
+      updates.push("theme = $" + (values.length + 1))
       values.push(contentData.theme)
-      paramIndex++
     }
 
     if (contentData.content) {
-      updates.push(`content = $${paramIndex}`)
+      updates.push("content = $" + (values.length + 1))
       values.push(JSON.stringify(contentData.content))
-      paramIndex++
     }
 
     if (updates.length === 0) {
       throw new Error("No updates provided")
     }
 
-    updates.push(`updated_at = CURRENT_TIMESTAMP`)
+    updates.push("updated_at = CURRENT_TIMESTAMP")
     values.push(orderId)
 
     const query = `
       UPDATE nfc_content 
       SET ${updates.join(", ")}
-      WHERE order_id = $${paramIndex}
+      WHERE order_id = $${values.length}
       RETURNING *
     `
 
@@ -537,26 +649,6 @@ export async function getAllOrdersForAdmin(filters: {
   try {
     const { limit = 50, offset = 0, status, search, sortBy = "created_at", sortOrder = "desc" } = filters
 
-    let query = `
-      SELECT o.*, 
-             u.first_name, u.last_name, u.email as user_email, u.phone as user_phone,
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'product_id', oi.product_id,
-                 'product_name', oi.product_name,
-                 'product_image', oi.product_image,
-                 'quantity', oi.quantity,
-                 'unit_price', oi.unit_price,
-                 'total_price', oi.total_price,
-                 'nfc_enabled', oi.nfc_enabled
-               ) ORDER BY oi.created_at
-             ) as items
-      FROM orders o
-      JOIN users u ON o.user_id = u.id
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-    `
-
     const whereConditions = []
     const queryParams = []
 
@@ -575,17 +667,34 @@ export async function getAllOrdersForAdmin(filters: {
       queryParams.push(`%${search}%`)
     }
 
-    if (whereConditions.length > 0) {
-      query += ` WHERE ${whereConditions.join(" AND ")}`
-    }
-
-    query += `
-      GROUP BY o.id, u.id
-      ORDER BY o.${sortBy} ${sortOrder}
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-    `
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : ""
 
     queryParams.push(limit, offset)
+
+    const query = `
+      SELECT o.*, 
+             u.first_name, u.last_name, u.email as user_email, u.phone as user_phone,
+             COALESCE(
+               (SELECT json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'product_name', oi.product_name,
+                   'product_image', oi.product_image,
+                   'quantity', oi.quantity,
+                   'unit_price', oi.unit_price,
+                   'total_price', oi.total_price,
+                   'nfc_enabled', oi.nfc_enabled
+                 ) ORDER BY oi.created_at
+               ) FROM order_items oi WHERE oi.order_id = o.id),
+               '[]'::json
+             ) as items
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      ${whereClause}
+      ORDER BY o.${sortBy} ${sortOrder}
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `
 
     const result = await sql.unsafe(query, ...queryParams)
     return result
@@ -605,14 +714,6 @@ export async function getAllUsersForAdmin(filters: {
   try {
     const { limit = 50, offset = 0, search, sortBy = "created_at", sortOrder = "desc" } = filters
 
-    let query = `
-      SELECT u.*, 
-             COUNT(o.id) as total_orders,
-             COALESCE(SUM(o.total_amount), 0) as total_spent
-      FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id
-    `
-
     const whereConditions = ["u.is_active = true"]
     const queryParams = []
 
@@ -626,15 +727,19 @@ export async function getAllUsersForAdmin(filters: {
       queryParams.push(`%${search}%`)
     }
 
-    query += ` WHERE ${whereConditions.join(" AND ")}`
+    queryParams.push(limit, offset)
 
-    query += `
+    const query = `
+      SELECT u.*, 
+             COUNT(o.id) as total_orders,
+             COALESCE(SUM(o.total_amount), 0) as total_spent
+      FROM users u
+      LEFT JOIN orders o ON u.id = o.user_id
+      WHERE ${whereConditions.join(" AND ")}
       GROUP BY u.id
       ORDER BY u.${sortBy} ${sortOrder}
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `
-
-    queryParams.push(limit, offset)
 
     const result = await sql.unsafe(query, ...queryParams)
     return result
@@ -652,13 +757,6 @@ export async function getAllNFCContentForAdmin(filters: {
 }) {
   try {
     const { limit = 50, offset = 0, search, theme } = filters
-
-    let query = `
-      SELECT nc.*, o.order_number, u.first_name, u.last_name, u.email
-      FROM nfc_content nc
-      JOIN orders o ON nc.order_id = o.id
-      JOIN users u ON o.user_id = u.id
-    `
 
     const whereConditions = []
     const queryParams = []
@@ -678,16 +776,19 @@ export async function getAllNFCContentForAdmin(filters: {
       queryParams.push(`%${search}%`)
     }
 
-    if (whereConditions.length > 0) {
-      query += ` WHERE ${whereConditions.join(" AND ")}`
-    }
-
-    query += `
-      ORDER BY nc.created_at DESC
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-    `
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : ""
 
     queryParams.push(limit, offset)
+
+    const query = `
+      SELECT nc.*, o.order_number, u.first_name, u.last_name, u.email
+      FROM nfc_content nc
+      JOIN orders o ON nc.order_id = o.id
+      JOIN users u ON o.user_id = u.id
+      ${whereClause}
+      ORDER BY nc.created_at DESC
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `
 
     const result = await sql.unsafe(query, ...queryParams)
     return result
