@@ -18,54 +18,43 @@ export async function GET(request: Request) {
 
     console.log("📊 Parametreler:", { search, status, sortBy, sortOrder, limit, offset })
 
-    // Template literals kullanarak sorgu oluştur
-    const query = sql`
-      SELECT 
-        o.id, 
-        o.order_number, 
-        o.user_id,
-        o.subtotal,
-        o.total_amount,
-        o.status,
-        o.created_at,
-        o.payment_method
-      FROM orders o
-    `
+    // Basit sorgu ile başla
+    let orders = []
 
-    // Filtreler için koşullar
-    const conditions = []
-    let whereClause = sql``
-
-    if (status && status !== "all") {
-      conditions.push(sql`o.status = ${status}`)
+    if (status && status !== "all" && status !== "") {
+      // Status filtresi var
+      orders = await sql`
+        SELECT 
+          id, order_number, user_id, subtotal, total_amount, 
+          status, created_at, payment_method, shipping_address, notes
+        FROM orders 
+        WHERE status = ${status}
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    } else if (search && search !== "") {
+      // Arama filtresi var
+      orders = await sql`
+        SELECT 
+          id, order_number, user_id, subtotal, total_amount, 
+          status, created_at, payment_method, shipping_address, notes
+        FROM orders 
+        WHERE order_number ILIKE ${`%${search}%`}
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    } else {
+      // Filtre yok, tüm siparişler
+      orders = await sql`
+        SELECT 
+          id, order_number, user_id, subtotal, total_amount, 
+          status, created_at, payment_method, shipping_address, notes
+        FROM orders 
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
     }
 
-    if (search) {
-      conditions.push(sql`o.order_number ILIKE ${"%" + search + "%"}`)
-    }
-
-    // WHERE koşullarını ekle
-    if (conditions.length > 0) {
-      whereClause = sql` WHERE ${sql.join(conditions, sql` AND `)} `
-    }
-
-    // Sıralama
-    const validSortFields = ["created_at", "order_number", "total_amount", "status"]
-    const safeSortBy = validSortFields.includes(sortBy) ? sortBy : "created_at"
-    const safeSortOrder = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC"
-
-    // Tam sorguyu oluştur
-    const fullQuery = sql`
-      ${query}
-      ${whereClause}
-      ORDER BY o.${sql.identifier(safeSortBy)} ${sql.raw(safeSortOrder)}
-      LIMIT ${limit} OFFSET ${offset}
-    `
-
-    console.log("🔍 SQL Query hazırlandı")
-
-    // Sorguyu çalıştır
-    const orders = await fullQuery
     console.log("✅ Orders çekildi:", orders.length)
 
     // Her sipariş için kullanıcı bilgilerini ve ürünleri çek
@@ -88,18 +77,44 @@ export async function GET(request: Request) {
             WHERE order_id = ${order.id}
           `
 
+          // Shipping address'ten isim ve telefon çıkar
+          let customerName = "Bilinmiyor"
+          let customerPhone = ""
+
+          if (order.shipping_address && typeof order.shipping_address === "object") {
+            customerName = order.shipping_address.name || "Bilinmiyor"
+            customerPhone = order.shipping_address.phone || ""
+          }
+
           return {
-            ...order,
+            id: order.id,
+            order_number: order.order_number,
+            user_id: order.user_id,
+            subtotal: Number.parseFloat(order.subtotal || "0"),
+            total_amount: Number.parseFloat(order.total_amount || "0"),
+            status: order.status,
+            created_at: order.created_at,
+            payment_method: order.payment_method,
+            notes: order.notes,
+            // Kullanıcı bilgileri (önce shipping_address'ten, sonra users tablosundan)
             user_email: user.email || "Bilinmiyor",
-            first_name: user.first_name || "Bilinmiyor",
-            last_name: user.last_name || "Bilinmiyor",
-            user_phone: user.phone || "",
+            first_name: customerName.split(" ")[0] || user.first_name || "Bilinmiyor",
+            last_name: customerName.split(" ").slice(1).join(" ") || user.last_name || "Bilinmiyor",
+            user_phone: customerPhone || user.phone || "",
             items: items || [],
           }
         } catch (error) {
           console.error(`❌ Order ${order.id} için detaylar alınamadı:`, error)
           return {
-            ...order,
+            id: order.id,
+            order_number: order.order_number,
+            user_id: order.user_id,
+            subtotal: Number.parseFloat(order.subtotal || "0"),
+            total_amount: Number.parseFloat(order.total_amount || "0"),
+            status: order.status,
+            created_at: order.created_at,
+            payment_method: order.payment_method,
+            notes: order.notes,
             user_email: "Hata",
             first_name: "Hata",
             last_name: "Hata",
