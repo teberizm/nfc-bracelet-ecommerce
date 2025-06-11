@@ -53,6 +53,18 @@ export async function GET(request: Request) {
     `
     const deliveredOrders = Number.parseInt(deliveredOrdersResult[0].count)
 
+    // Toplam ürün sayısı
+    const totalProductsResult = await sql`
+      SELECT COUNT(*) as count FROM products WHERE is_active = true
+    `
+    const totalProducts = Number.parseInt(totalProductsResult[0].count)
+
+    // Aktif NFC içerik sayısı
+    const activeNFCContentResult = await sql`
+      SELECT COUNT(*) as count FROM nfc_content
+    `
+    const activeNFCContent = Number.parseInt(activeNFCContentResult[0].count)
+
     // Bu ay eklenen kullanıcılar
     const thisMonthUsersResult = await sql`
       SELECT COUNT(*) as count FROM users 
@@ -72,13 +84,41 @@ export async function GET(request: Request) {
     // Kullanıcı büyüme oranı
     const userGrowthRate = lastMonthUsers > 0 ? ((thisMonthUsers - lastMonthUsers) / lastMonthUsers) * 100 : 0
 
+    // Tema kullanım istatistikleri
+    const themeUsageResult = await sql`
+      SELECT 
+        t.name as theme_name, 
+        COUNT(nc.id) as usage_count
+      FROM nfc_themes t
+      LEFT JOIN nfc_content nc ON nc.theme = t.slug
+      GROUP BY t.name
+      ORDER BY usage_count DESC
+      LIMIT 5
+    `
+
+    // Son 7 günlük sipariş istatistikleri
+    const last7DaysOrdersResult = await sql`
+      SELECT 
+        DATE_TRUNC('day', created_at) as order_date,
+        COUNT(*) as order_count,
+        SUM(total_amount) as daily_revenue
+      FROM orders
+      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY DATE_TRUNC('day', created_at)
+      ORDER BY order_date
+    `
+
     const stats = {
       totalUsers,
       totalOrders,
       totalRevenue,
       pendingOrders,
       deliveredOrders,
-      userGrowthRate: Math.round(userGrowthRate * 100) / 100,
+      totalProducts,
+      activeNFCContent,
+      monthlyGrowth: Math.round(userGrowthRate * 100) / 100,
+      themeUsage: themeUsageResult,
+      last7DaysOrders: last7DaysOrdersResult,
     }
 
     console.log("İstatistikler hazırlandı:", stats)
