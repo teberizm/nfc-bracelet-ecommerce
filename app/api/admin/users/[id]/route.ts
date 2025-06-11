@@ -5,6 +5,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
 
+    // Connection pooling sorununu çözmek için kısa bir bekleme
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
     // Kullanıcı bilgilerini çek - gerçek sütun isimleri ile
     const userResult = await sql`
       SELECT 
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       WHERE id = ${params.id}
     `
 
-    console.log("Kullanıcı sorgu sonucu:", userResult)
+    console.log("Veritabanından çekilen RAW veri:", userResult[0])
 
     if (!userResult || userResult.length === 0) {
       return NextResponse.json({ success: false, message: "Kullanıcı bulunamadı" }, { status: 404 })
@@ -77,6 +80,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       notes: "", // Bu sütun yok, boş string yapıyoruz
     }
 
+    console.log("Normalize edilmiş kullanıcı:", userData)
+    console.log("İsim birleştirme:", `"${user.first_name}" + " " + "${user.last_name}" = "${userData.name}"`)
+
     // Siparişleri normalize et
     const orders = ordersResult.map((order) => ({
       id: order.id,
@@ -86,9 +92,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       products: ["NFC Bileklik"], // Basit ürün adı
     }))
 
-    console.log("Normalize edilmiş kullanıcı:", userData)
-    console.log("Normalize edilmiş siparişler:", orders)
-
     // Cache-busting header'ları ekle
     return NextResponse.json(
       {
@@ -96,6 +99,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         user: userData,
         orders: orders,
         timestamp: Date.now(), // Her seferinde farklı bir response için
+        debug: {
+          rawFirstName: user.first_name,
+          rawLastName: user.last_name,
+          combinedName: userData.name,
+        },
       },
       {
         headers: {
@@ -158,7 +166,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     console.log("UPDATE sorgu sonucu:", updateResult)
 
-    // Güncelleme sonrası veriyi kontrol et
+    // Güncelleme sonrası veriyi kontrol et - AYNI CONNECTION'DA
     const afterUpdate = await sql`
       SELECT first_name, last_name, email, phone, is_active, updated_at
       FROM users 
