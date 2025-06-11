@@ -1,284 +1,218 @@
-import { NextResponse } from "next/server"
-import { verifyAdminToken } from "@/lib/auth"
-import { getFreshConnection } from "@/lib/database"
+"use client"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+import { useState, useEffect } from "react"
+import { useAdmin } from "@/contexts/admin-context"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Search, Filter, RefreshCw, ShoppingBag, Calendar, User } from "lucide-react"
+import Link from "next/link"
 
-export async function GET(request: Request) {
-  try {
-    console.log("=== Admin users API çağrısı başladı ===")
-    console.log("Timestamp:", new Date().toISOString())
+interface UserType {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  phone?: string
+  created_at: string
+  total_orders: number
+  total_spent: number
+  is_active: boolean
+}
 
-    // Admin token'ını doğrula
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+export default function AdminUsersPage() {
+  const { state } = useAdmin()
+  const [users, setUsers] = useState<UserType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState({
+    search: "",
+    sortBy: "created_at",
+    sortOrder: "desc",
+  })
+
+  useEffect(() => {
+    if (state.isAuthenticated) {
+      fetchUsers()
     }
+  }, [state.isAuthenticated, filters])
 
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
-
-    // URL parametrelerini al
-    const { searchParams } = new URL(request.url)
-    const search = searchParams.get("search") || ""
-    const sortBy = searchParams.get("sortBy") || "created_at"
-    const sortOrder = searchParams.get("sortOrder") || "desc"
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
-
-    console.log("Parametreler:", { search, sortBy, sortOrder, limit, offset })
-
-    // Taze bir veritabanı bağlantısı oluştur
-    const freshSql = getFreshConnection()
-    console.log("Taze veritabanı bağlantısı oluşturuldu")
-
-    // Güvenli sütun adları için whitelist
-    const allowedSortColumns = ["created_at", "first_name", "last_name", "email", "updated_at"]
-    const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : "created_at"
-    const safeSortOrder = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC"
-
-    console.log("=== Veritabanından kullanıcılar çekiliyor ===")
-
-    let result
-
-    if (search) {
-      // Arama ile kullanıcıları çek
-      const searchPattern = `%${search}%`
-
-      if (safeSortBy === "created_at") {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${searchPattern} OR u.last_name ILIKE ${searchPattern} OR u.email ILIKE ${searchPattern})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.created_at ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (safeSortBy === "first_name") {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${searchPattern} OR u.last_name ILIKE ${searchPattern} OR u.email ILIKE ${searchPattern})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.first_name ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (safeSortBy === "last_name") {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${searchPattern} OR u.last_name ILIKE ${searchPattern} OR u.email ILIKE ${searchPattern})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.last_name ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${searchPattern} OR u.last_name ILIKE ${searchPattern} OR u.email ILIKE ${searchPattern})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.email ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const token = localStorage.getItem("adminToken")
+      if (!token) {
+        setError("Admin token bulunamadı")
+        return
       }
-    } else {
-      // Tüm kullanıcıları çek
-      if (safeSortBy === "created_at") {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.created_at ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (safeSortBy === "first_name") {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.first_name ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (safeSortBy === "last_name") {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.last_name ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else {
-        result = await freshSql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.updated_at,
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-          ORDER BY u.email ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      }
-    }
 
-    console.log("=== RAW Veritabanı Sonucu ===")
-    console.log("Sonuç sayısı:", result.length)
-    result.forEach((row, index) => {
-      console.log(`Kullanıcı ${index + 1}:`, {
-        id: row.id,
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone: row.phone,
-        updated_at: row.updated_at,
-        is_active: row.is_active,
+      const params = new URLSearchParams()
+      if (filters.search) params.append("search", filters.search)
+      params.append("sortBy", filters.sortBy)
+      params.append("sortOrder", filters.sortOrder)
+
+      console.log("API çağrısı yapılıyor:", `/api/admin/users?${params}`)
+
+      const response = await fetch(`/api/admin/users?${params}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
-    })
 
-    // Verileri formatla
-    const users = result.map((row) => {
-      const user = {
-        id: row.id,
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone: row.phone,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        is_active: row.is_active,
-        total_orders: Number.parseInt(row.total_orders || "0"),
-        total_spent: Number.parseFloat(row.total_spent || "0"),
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("API hatası:", response.status, errorText)
+        throw new Error(`API hatası: ${response.status} ${errorText}`)
       }
 
-      console.log("Formatlanmış kullanıcı:", user)
-      return user
-    })
+      const data = await response.json()
+      console.log("API yanıtı:", data)
 
-    console.log("=== API Yanıtı Hazırlanıyor ===")
-    console.log("Toplam kullanıcı sayısı:", users.length)
-
-    const response = {
-      success: true,
-      users,
-      timestamp: Date.now(),
-      debug: {
-        queryTime: new Date().toISOString(),
-        userCount: users.length,
-      },
+      if (data.success) {
+        setUsers(data.users || [])
+      } else {
+        throw new Error(data.message || "Bilinmeyen hata")
+      }
+    } catch (error) {
+      console.error("Kullanıcıları çekerken hata:", error)
+      setError(`Kullanıcılar yüklenirken hata oluştu: ${error.message}`)
+      setUsers([])
+    } finally {
+      setLoading(false)
     }
+  }
 
-    return NextResponse.json(response, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-        Pragma: "no-cache",
-        Expires: "0",
-        "Surrogate-Control": "no-store",
-        "X-Timestamp": Date.now().toString(),
-      },
-    })
-  } catch (error) {
-    console.error("=== Admin users hatası ===")
-    console.error("Hata:", error)
-    console.error("Hata stack:", error.stack)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Kullanıcılar çekilirken hata oluştu",
-        error: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-      },
-      { status: 500 },
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+      </div>
     )
   }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Kullanıcı Yönetimi</h1>
+        <Button onClick={fetchUsers} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Yenile
+        </Button>
+      </div>
+
+      {/* Filtreler */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filtreler
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Ad, soyad, email ara..."
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                className="pl-10"
+              />
+            </div>
+            <Select value={filters.sortBy} onValueChange={(value) => setFilters({ ...filters, sortBy: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sırala" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">Kayıt Tarihi</SelectItem>
+                <SelectItem value="total_spent">Toplam Harcama</SelectItem>
+                <SelectItem value="total_orders">Sipariş Sayısı</SelectItem>
+                <SelectItem value="first_name">Ad</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.sortOrder} onValueChange={(value) => setFilters({ ...filters, sortOrder: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sıralama" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">Azalan</SelectItem>
+                <SelectItem value="asc">Artan</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hata Mesajı */}
+      {error && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-600">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Kullanıcı Listesi */}
+      <div className="grid gap-4">
+        {users.length > 0 ? (
+          users.map((user) => (
+            <Card key={user.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">
+                          {user.first_name} {user.last_name}
+                        </h3>
+                        {user.is_active ? (
+                          <Badge variant="default">Aktif</Badge>
+                        ) : (
+                          <Badge variant="secondary">Pasif</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                      {user.phone && <p className="text-sm text-gray-500">{user.phone}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <ShoppingBag className="h-4 w-4" />
+                        <span>{user.total_orders} sipariş</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">{user.total_spent.toLocaleString("tr-TR")} ₺</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(user.created_at).toLocaleDateString("tr-TR")}</span>
+                      </div>
+                    </div>
+                    <Button size="sm" className="mt-2" asChild>
+                      <Link href={`/admin/users/${user.id}`}>Detay</Link>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-gray-500">
+                {error ? "Hata nedeniyle kullanıcılar yüklenemedi." : "Henüz kullanıcı bulunmuyor."}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
 }

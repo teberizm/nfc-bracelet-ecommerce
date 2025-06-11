@@ -178,22 +178,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     console.log("=== Kullanıcı güncelleme tamamlandı ===")
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Kullanıcı güncellendi",
-        before: beforeUpdate[0],
-        after: afterUpdate[0],
-        timestamp: Date.now(), // Cache busting için
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      },
-    )
+    return NextResponse.json({
+      success: true,
+      message: "Kullanıcı güncellendi",
+      before: beforeUpdate[0],
+      after: afterUpdate[0],
+    })
   } catch (error: any) {
     console.error("=== Kullanıcı güncelleme hatası ===")
     console.error("Hata:", error)

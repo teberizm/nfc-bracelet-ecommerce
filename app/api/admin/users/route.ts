@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server"
 import { verifyAdminToken } from "@/lib/auth"
-import { getFreshConnection } from "@/lib/database"
+import { sql } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
-export const revalidate = 0
 
 export async function GET(request: Request) {
   try {
-    console.log("=== Admin users API çağrısı başladı ===")
-    console.log("Timestamp:", new Date().toISOString())
+    console.log("Admin users API çağrısı başladı")
 
     // Admin token'ını doğrula
     const authHeader = request.headers.get("authorization")
@@ -31,42 +29,95 @@ export async function GET(request: Request) {
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-    console.log("Parametreler:", { search, sortBy, sortOrder, limit, offset })
+    console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
 
-    // Taze bir veritabanı bağlantısı oluştur
-    const freshSql = getFreshConnection()
-    console.log("Taze veritabanı bağlantısı oluşturuldu")
+    // Neon SQL tagged template literal kullanarak sorgu
+    let result
 
-    // Güvenli sütun adları için whitelist
-    const allowedSortColumns = ["created_at", "first_name", "last_name", "email", "updated_at"]
-    const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : "created_at"
-    const safeSortOrder = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC"
+    if (search) {
+      console.log("Arama ile kullanıcılar çekiliyor:", search)
+      result = await sql`
+        SELECT 
+          u.id, 
+          u.email, 
+          u.first_name, 
+          u.last_name, 
+          u.phone, 
+          u.created_at, 
+          u.is_active,
+          COUNT(o.id) as total_orders,
+          COALESCE(SUM(o.total_amount), 0) as total_spent
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+        GROUP BY u.id
+        ORDER BY u.${sql(sortBy)} ${sql.unsafe(sortOrder.toUpperCase())}
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    } else {
+      console.log("Tüm kullanıcılar çekiliyor")
+      if (sortBy === "created_at") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id
+          ORDER BY u.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (sortBy === "first_name") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id
+          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id
+          ORDER BY u.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      }
+    }
 
-    console.log("=== Veritabanından kullanıcılar çekiliyor ===")
+    console.log("Veritabanı sonucu:", result)
+    console.log("Sonuç tipi:", typeof result)
+    console.log("Array mi?", Array.isArray(result))
 
-    // Basit bir sorgu ile başlayalım
-    const result = await freshSql`
-      SELECT 
-        u.id, 
-        u.email, 
-        u.first_name, 
-        u.last_name, 
-        u.phone, 
-        u.created_at, 
-        u.updated_at,
-        u.is_active,
-        0 as total_orders,
-        0 as total_spent
-      FROM users u
-      WHERE u.is_active = true
-      ORDER BY u.created_at DESC
-      LIMIT ${limit}
-    `
-
-    console.log("=== RAW Veritabanı Sonucu ===")
-    console.log("Sonuç sayısı:", result.length)
-
-    // Verileri formatla
+    // Neon'dan gelen sonuç zaten array formatında
     const users = result.map((row) => ({
       id: row.id,
       email: row.email,
@@ -74,46 +125,25 @@ export async function GET(request: Request) {
       last_name: row.last_name,
       phone: row.phone,
       created_at: row.created_at,
-      updated_at: row.updated_at,
       is_active: row.is_active,
-      total_orders: 0,
-      total_spent: 0,
+      total_orders: Number.parseInt(row.total_orders || "0"),
+      total_spent: Number.parseFloat(row.total_spent || "0"),
     }))
 
-    console.log("=== API Yanıtı Hazırlanıyor ===")
-    console.log("Toplam kullanıcı sayısı:", users.length)
+    console.log(`${users.length} kullanıcı formatlandı`)
 
-    const response = {
+    return NextResponse.json({
       success: true,
       users,
-      timestamp: Date.now(),
-      debug: {
-        queryTime: new Date().toISOString(),
-        userCount: users.length,
-      },
-    }
-
-    return NextResponse.json(response, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-        Pragma: "no-cache",
-        Expires: "0",
-        "Surrogate-Control": "no-store",
-        "X-Timestamp": Date.now().toString(),
-      },
     })
   } catch (error) {
-    console.error("=== Admin users hatası ===")
-    console.error("Hata:", error)
-    console.error("Hata mesajı:", error.message)
+    console.error("Admin users hatası:", error)
     console.error("Hata stack:", error.stack)
-
     return NextResponse.json(
       {
         success: false,
         message: "Kullanıcılar çekilirken hata oluştu",
         error: error.message,
-        details: error.toString(),
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 },

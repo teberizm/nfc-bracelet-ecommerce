@@ -6,6 +6,10 @@ if (!process.env.DATABASE_URL) {
 
 export const sql = neon(process.env.DATABASE_URL)
 
+export function getFreshConnection() {
+  return neon(process.env.DATABASE_URL as string)
+}
+
 // User functions
 export async function getUserByEmail(email: string) {
   try {
