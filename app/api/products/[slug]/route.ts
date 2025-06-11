@@ -16,10 +16,22 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
         SELECT 
           p.*,
           c.name as category_name,
-          c.slug as category_slug
+          c.slug as category_slug,
+          COALESCE(
+            (SELECT json_agg(
+              json_build_object(
+                'id', pi.id,
+                'image_url', pi.image_url,
+                'alt_text', pi.alt_text,
+                'sort_order', pi.sort_order,
+                'is_primary', pi.is_primary
+              ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
+            ) FROM product_images pi WHERE pi.product_id = p.id),
+            '[]'::json
+          ) as product_images
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.id = ${slug}
+        WHERE p.id = ${slug} AND p.is_active = true
       `
 
       if (productById.length > 0) {
@@ -36,10 +48,22 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
           SELECT 
             p.*,
             c.name as category_name,
-            c.slug as category_slug
+            c.slug as category_slug,
+            COALESCE(
+              (SELECT json_agg(
+                json_build_object(
+                  'id', pi.id,
+                  'image_url', pi.image_url,
+                  'alt_text', pi.alt_text,
+                  'sort_order', pi.sort_order,
+                  'is_primary', pi.is_primary
+                ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
+              ) FROM product_images pi WHERE pi.product_id = p.id),
+              '[]'::json
+            ) as product_images
           FROM products p
           LEFT JOIN categories c ON p.category_id = c.id
-          WHERE p.slug = ${slug}
+          WHERE p.slug = ${slug} AND p.is_active = true
         `
 
         if (productBySlug.length > 0) {
@@ -56,6 +80,26 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
     }
 
     console.log(`Ürün bulundu: ${product.name}`)
+    console.log("Ham ürün verisi:", product)
+
+    // Resim verilerini parse et
+    let images = []
+    let primaryImage = "/placeholder.svg?height=600&width=600"
+
+    if (product.product_images && Array.isArray(product.product_images)) {
+      images = product.product_images.filter((img) => img && img.image_url).map((img) => img.image_url)
+
+      // Ana resmi bul
+      const primaryImg = product.product_images.find((img) => img.is_primary)
+      if (primaryImg) {
+        primaryImage = primaryImg.image_url
+      } else if (images.length > 0) {
+        primaryImage = images[0]
+      }
+    }
+
+    console.log("Parse edilen resimler:", images)
+    console.log("Ana resim:", primaryImage)
 
     // Ürün verisini normalize et
     const normalizedProduct = {
@@ -65,8 +109,8 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
       description: product.description,
       price: Number.parseFloat(product.price),
       original_price: product.original_price ? Number.parseFloat(product.original_price) : null,
-      primary_image: product.primary_image || "/placeholder.svg?height=600&width=600",
-      images: product.images,
+      primary_image: primaryImage,
+      images: images.length > 0 ? images : [primaryImage],
       category_id: product.category_id,
       category_name: product.category_name || "Genel",
       category_slug: product.category_slug,
@@ -82,6 +126,8 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
       created_at: product.created_at,
       updated_at: product.updated_at,
     }
+
+    console.log("Normalize edilmiş ürün:", normalizedProduct)
 
     return NextResponse.json(normalizedProduct)
   } catch (error) {
