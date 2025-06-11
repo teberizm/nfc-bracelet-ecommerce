@@ -65,10 +65,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log("Toplam harcama:", totalSpentResult[0]?.total || 0)
     console.log("Siparişler:", ordersResult)
 
-    // Verileri normalize et - gerçek sütunlara göre
+    // Verileri normalize et - frontend'in beklediği yapıya göre
     const userData = {
       id: user.id,
-      name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
       email: user.email || "",
       phone: user.phone || "",
       avatar: user.avatar_url || "",
@@ -83,7 +84,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     console.log("Normalize edilmiş kullanıcı:", userData)
-    console.log("İsim birleştirme:", `"${user.first_name}" + " " + "${user.last_name}" = "${userData.name}"`)
 
     // Siparişleri normalize et
     const orders = ordersResult.map((order) => ({
@@ -101,11 +101,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         user: userData,
         orders: orders,
         timestamp: Date.now(), // Her seferinde farklı bir response için
-        debug: {
-          rawFirstName: user.first_name,
-          rawLastName: user.last_name,
-          combinedName: userData.name,
-        },
       },
       {
         headers: {
@@ -132,18 +127,22 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const { name, email, phone, status } = body
+    const { first_name, last_name, email, phone, status } = body
 
     console.log("=== Kullanıcı güncelleme başladı ===")
-    console.log("Gelen veriler:", { name, email, phone, status })
+    console.log("Gelen veriler:", { first_name, last_name, email, phone, status })
     console.log("Kullanıcı ID:", params.id)
 
-    // İsmi parçalara ayır
-    const nameParts = name.split(" ")
-    const firstName = nameParts[0] || ""
-    const lastName = nameParts.slice(1).join(" ") || ""
-
-    console.log("Parçalanmış isim:", { firstName, lastName })
+    // Validation
+    if (!first_name || !email) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Ad ve e-posta alanları zorunludur",
+        },
+        { status: 400 },
+      )
+    }
 
     // Önce mevcut veriyi kontrol et
     const beforeUpdate = await sql`
@@ -153,14 +152,24 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     `
     console.log("Güncelleme öncesi veri:", beforeUpdate[0])
 
+    if (!beforeUpdate || beforeUpdate.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Kullanıcı bulunamadı",
+        },
+        { status: 404 },
+      )
+    }
+
     // Güncelleme yap
     const updateResult = await sql`
       UPDATE users 
       SET 
-        first_name = ${firstName},
-        last_name = ${lastName},
+        first_name = ${first_name},
+        last_name = ${last_name || ""},
         email = ${email},
-        phone = ${phone},
+        phone = ${phone || ""},
         is_active = ${status === "active"},
         updated_at = NOW()
       WHERE id = ${params.id}
@@ -168,7 +177,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     console.log("UPDATE sorgu sonucu:", updateResult)
 
-    // Güncelleme sonrası veriyi kontrol et - AYNI CONNECTION'DA
+    // Güncelleme sonrası veriyi kontrol et
     const afterUpdate = await sql`
       SELECT first_name, last_name, email, phone, is_active, updated_at
       FROM users 
@@ -180,7 +189,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({
       success: true,
-      message: "Kullanıcı güncellendi",
+      message: "Kullanıcı başarıyla güncellendi",
       before: beforeUpdate[0],
       after: afterUpdate[0],
     })
@@ -191,7 +200,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json(
       {
         success: false,
-        message: "Güncelleme hatası",
+        message: "Güncelleme hatası: " + error.message,
         error: error.message,
       },
       { status: 500 },
