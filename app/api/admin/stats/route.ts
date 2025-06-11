@@ -23,90 +23,163 @@ export async function GET(request: Request) {
 
     console.log("Admin doğrulandı, istatistikler çekiliyor...")
 
-    // Toplam kullanıcı sayısı
-    const totalUsersResult = await sql`
-      SELECT COUNT(*) as count FROM users WHERE is_active = true
-    `
-    const totalUsers = Number.parseInt(totalUsersResult[0].count)
+    // Her sorguyu try-catch ile sarmalayalım
+    let totalUsers = 0
+    let totalOrders = 0
+    let totalRevenue = 0
+    let pendingOrders = 0
+    let deliveredOrders = 0
+    let totalProducts = 0
+    let activeNFCContent = 0
+    let thisMonthUsers = 0
+    let lastMonthUsers = 0
+    let themeUsageResult = []
+    let last7DaysOrdersResult = []
 
-    // Toplam sipariş sayısı
-    const totalOrdersResult = await sql`
-      SELECT COUNT(*) as count FROM orders
-    `
-    const totalOrders = Number.parseInt(totalOrdersResult[0].count)
+    try {
+      // Toplam kullanıcı sayısı
+      const totalUsersResult = await sql`
+        SELECT COUNT(*) as count FROM users WHERE is_active = true
+      `
+      totalUsers = Number.parseInt(totalUsersResult[0]?.count || "0")
+      console.log("Total users:", totalUsers)
+    } catch (error) {
+      console.error("Error fetching total users:", error)
+    }
 
-    // Toplam gelir
-    const totalRevenueResult = await sql`
-      SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status != 'cancelled'
-    `
-    const totalRevenue = Number.parseFloat(totalRevenueResult[0].total)
+    try {
+      // Toplam sipariş sayısı
+      const totalOrdersResult = await sql`
+        SELECT COUNT(*) as count FROM orders
+      `
+      totalOrders = Number.parseInt(totalOrdersResult[0]?.count || "0")
+      console.log("Total orders:", totalOrders)
+    } catch (error) {
+      console.error("Error fetching total orders:", error)
+    }
 
-    // Bekleyen siparişler
-    const pendingOrdersResult = await sql`
-      SELECT COUNT(*) as count FROM orders WHERE status = 'pending'
-    `
-    const pendingOrders = Number.parseInt(pendingOrdersResult[0].count)
+    try {
+      // Toplam gelir
+      const totalRevenueResult = await sql`
+        SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status != 'cancelled'
+      `
+      totalRevenue = Number.parseFloat(totalRevenueResult[0]?.total || "0")
+      console.log("Total revenue:", totalRevenue)
+    } catch (error) {
+      console.error("Error fetching total revenue:", error)
+    }
 
-    // Teslim edilen siparişler
-    const deliveredOrdersResult = await sql`
-      SELECT COUNT(*) as count FROM orders WHERE status = 'delivered'
-    `
-    const deliveredOrders = Number.parseInt(deliveredOrdersResult[0].count)
+    try {
+      // Bekleyen siparişler
+      const pendingOrdersResult = await sql`
+        SELECT COUNT(*) as count FROM orders WHERE status = 'pending'
+      `
+      pendingOrders = Number.parseInt(pendingOrdersResult[0]?.count || "0")
+      console.log("Pending orders:", pendingOrders)
+    } catch (error) {
+      console.error("Error fetching pending orders:", error)
+    }
 
-    // Toplam ürün sayısı
-    const totalProductsResult = await sql`
-      SELECT COUNT(*) as count FROM products WHERE is_active = true
-    `
-    const totalProducts = Number.parseInt(totalProductsResult[0].count)
+    try {
+      // Teslim edilen siparişler
+      const deliveredOrdersResult = await sql`
+        SELECT COUNT(*) as count FROM orders WHERE status = 'delivered'
+      `
+      deliveredOrders = Number.parseInt(deliveredOrdersResult[0]?.count || "0")
+      console.log("Delivered orders:", deliveredOrders)
+    } catch (error) {
+      console.error("Error fetching delivered orders:", error)
+    }
 
-    // Aktif NFC içerik sayısı
-    const activeNFCContentResult = await sql`
-      SELECT COUNT(*) as count FROM nfc_content
-    `
-    const activeNFCContent = Number.parseInt(activeNFCContentResult[0].count)
+    try {
+      // Toplam ürün sayısı
+      const totalProductsResult = await sql`
+        SELECT COUNT(*) as count FROM products WHERE is_active = true
+      `
+      totalProducts = Number.parseInt(totalProductsResult[0]?.count || "0")
+      console.log("Total products:", totalProducts)
+    } catch (error) {
+      console.error("Error fetching total products:", error)
+    }
 
-    // Bu ay eklenen kullanıcılar
-    const thisMonthUsersResult = await sql`
-      SELECT COUNT(*) as count FROM users 
-      WHERE is_active = true 
-      AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
-    `
-    const thisMonthUsers = Number.parseInt(thisMonthUsersResult[0].count)
+    try {
+      // Aktif NFC içerik sayısı
+      const activeNFCContentResult = await sql`
+        SELECT COUNT(*) as count FROM nfc_content
+      `
+      activeNFCContent = Number.parseInt(activeNFCContentResult[0]?.count || "0")
+      console.log("Active NFC content:", activeNFCContent)
+    } catch (error) {
+      console.error("Error fetching NFC content:", error)
+    }
 
-    // Geçen ay eklenen kullanıcılar
-    const lastMonthUsersResult = await sql`
-      SELECT COUNT(*) as count FROM users 
-      WHERE is_active = true 
-      AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
-    `
-    const lastMonthUsers = Number.parseInt(lastMonthUsersResult[0].count)
+    try {
+      // Bu ay eklenen kullanıcılar
+      const thisMonthUsersResult = await sql`
+        SELECT COUNT(*) as count FROM users 
+        WHERE is_active = true 
+        AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+      `
+      thisMonthUsers = Number.parseInt(thisMonthUsersResult[0]?.count || "0")
+      console.log("This month users:", thisMonthUsers)
+    } catch (error) {
+      console.error("Error fetching this month users:", error)
+    }
+
+    try {
+      // Geçen ay eklenen kullanıcılar
+      const lastMonthUsersResult = await sql`
+        SELECT COUNT(*) as count FROM users 
+        WHERE is_active = true 
+        AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+      `
+      lastMonthUsers = Number.parseInt(lastMonthUsersResult[0]?.count || "0")
+      console.log("Last month users:", lastMonthUsers)
+    } catch (error) {
+      console.error("Error fetching last month users:", error)
+    }
+
+    try {
+      // Tema kullanım istatistikleri - sadece mevcut temalar varsa
+      const themeUsageQuery = await sql`
+        SELECT 
+          t.name as theme_name, 
+          COALESCE(COUNT(nc.id), 0) as usage_count
+        FROM nfc_themes t
+        LEFT JOIN nfc_content nc ON nc.theme = t.slug
+        WHERE t.is_active = true
+        GROUP BY t.name, t.id
+        ORDER BY usage_count DESC
+        LIMIT 5
+      `
+      themeUsageResult = themeUsageQuery || []
+      console.log("Theme usage:", themeUsageResult)
+    } catch (error) {
+      console.error("Error fetching theme usage:", error)
+      themeUsageResult = []
+    }
+
+    try {
+      // Son 7 günlük sipariş istatistikleri
+      const last7DaysQuery = await sql`
+        SELECT 
+          DATE_TRUNC('day', created_at) as order_date,
+          COUNT(*) as order_count,
+          COALESCE(SUM(total_amount), 0) as daily_revenue
+        FROM orders
+        WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+        GROUP BY DATE_TRUNC('day', created_at)
+        ORDER BY order_date
+      `
+      last7DaysOrdersResult = last7DaysQuery || []
+      console.log("Last 7 days orders:", last7DaysOrdersResult)
+    } catch (error) {
+      console.error("Error fetching last 7 days orders:", error)
+      last7DaysOrdersResult = []
+    }
 
     // Kullanıcı büyüme oranı
     const userGrowthRate = lastMonthUsers > 0 ? ((thisMonthUsers - lastMonthUsers) / lastMonthUsers) * 100 : 0
-
-    // Tema kullanım istatistikleri
-    const themeUsageResult = await sql`
-      SELECT 
-        t.name as theme_name, 
-        COUNT(nc.id) as usage_count
-      FROM nfc_themes t
-      LEFT JOIN nfc_content nc ON nc.theme = t.slug
-      GROUP BY t.name
-      ORDER BY usage_count DESC
-      LIMIT 5
-    `
-
-    // Son 7 günlük sipariş istatistikleri
-    const last7DaysOrdersResult = await sql`
-      SELECT 
-        DATE_TRUNC('day', created_at) as order_date,
-        COUNT(*) as order_count,
-        SUM(total_amount) as daily_revenue
-      FROM orders
-      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY DATE_TRUNC('day', created_at)
-      ORDER BY order_date
-    `
 
     const stats = {
       totalUsers,
@@ -128,10 +201,26 @@ export async function GET(request: Request) {
       stats,
     })
   } catch (error) {
-    console.error("Admin stats hatası:", error)
-    return NextResponse.json(
-      { success: false, message: "İstatistikler çekilirken hata oluştu", error: error.message },
-      { status: 500 },
-    )
+    console.error("Admin stats genel hatası:", error)
+
+    // Hata durumunda varsayılan değerler döndür
+    const defaultStats = {
+      totalUsers: 0,
+      totalOrders: 0,
+      totalRevenue: 0,
+      pendingOrders: 0,
+      deliveredOrders: 0,
+      totalProducts: 0,
+      activeNFCContent: 0,
+      monthlyGrowth: 0,
+      themeUsage: [],
+      last7DaysOrders: [],
+    }
+
+    return NextResponse.json({
+      success: true,
+      stats: defaultStats,
+      error: "Bazı istatistikler yüklenemedi, varsayılan değerler gösteriliyor",
+    })
   }
 }
