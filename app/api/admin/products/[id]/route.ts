@@ -6,16 +6,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log(`Fetching product with ID: ${params.id}`)
 
+    // Validate product ID
+    if (!params.id || params.id.trim() === "") {
+      return NextResponse.json({ success: false, message: "Geçersiz ürün ID'si" }, { status: 400 })
+    }
+
     // Fetch product details
     const productResult = await sql`
       SELECT * FROM products WHERE id = ${params.id}
     `
 
     if (!productResult || productResult.length === 0) {
+      console.log(`Product not found with ID: ${params.id}`)
       return NextResponse.json({ success: false, message: "Ürün bulunamadı" }, { status: 404 })
     }
 
     const product = productResult[0]
+    console.log(`Found product: ${product.name}`)
 
     // Fetch product features
     const featuresResult = await sql`
@@ -58,8 +65,20 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return response
   } catch (error) {
     console.error("Error fetching product:", error)
+
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error("Error name:", error.name)
+      console.error("Error message:", error.message)
+      console.error("Error stack:", error.stack)
+    }
+
     return NextResponse.json(
-      { success: false, message: "Ürün detayı çekilirken hata oluştu", error: String(error) },
+      {
+        success: false,
+        message: "Ürün detayı çekilirken hata oluştu",
+        error: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     )
   }

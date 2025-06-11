@@ -86,10 +86,16 @@ export default function ProductDetailPage() {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(`/api/admin/products/${params.id}?_t=${Date.now()}`)
+        const response = await fetch(`/api/admin/products/${params.id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
         }
 
         const data = await response.json()
