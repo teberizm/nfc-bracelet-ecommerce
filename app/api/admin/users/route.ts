@@ -31,65 +31,183 @@ export async function GET(request: Request) {
 
     console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
 
-    // Build the base query
-    let baseQuery = `
-  SELECT 
-    u.id, 
-    u.email, 
-    u.first_name, 
-    u.last_name, 
-    u.phone, 
-    u.created_at, 
-    u.is_active,
-    COUNT(o.id) as total_orders,
-    COALESCE(SUM(o.total_amount), 0) as total_spent
-  FROM users u
-  LEFT JOIN orders o ON u.id = o.user_id
-`
+    let result
 
-    // Add search condition if provided
+    // Arama varsa
     if (search) {
       console.log("Arama ile kullanıcılar çekiliyor:", search)
-      baseQuery += ` WHERE (u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR u.email ILIKE $1)`
+
+      // Sıralama türüne göre sorgu
+      if (sortBy === "total_spent") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY total_spent ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (sortBy === "total_orders") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY total_orders ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (sortBy === "first_name") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else {
+        // created_at veya diğer durumlar
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY u.created_at ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      }
     } else {
+      // Arama yoksa
       console.log("Tüm kullanıcılar çekiliyor")
-    }
 
-    baseQuery += ` GROUP BY u.id`
-
-    // Add sorting
-    let orderByClause = ""
-    switch (sortBy) {
-      case "created_at":
-        orderByClause = ` ORDER BY u.created_at ${sortOrder.toUpperCase()}`
-        break
-      case "first_name":
-        orderByClause = ` ORDER BY u.first_name ${sortOrder.toUpperCase()}`
-        break
-      case "total_spent":
-        orderByClause = ` ORDER BY total_spent ${sortOrder.toUpperCase()}`
-        break
-      case "total_orders":
-        orderByClause = ` ORDER BY total_orders ${sortOrder.toUpperCase()}`
-        break
-      default:
-        orderByClause = ` ORDER BY u.created_at DESC`
-    }
-
-    baseQuery += orderByClause
-    baseQuery += ` LIMIT $${search ? "2" : "1"} OFFSET $${search ? "3" : "2"}`
-
-    // Execute query with proper parameters
-    let result
-    if (search) {
-      result = await sql.unsafe(baseQuery, `%${search}%`, limit, offset)
-    } else {
-      result = await sql.unsafe(baseQuery, limit, offset)
+      if (sortBy === "total_spent") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY total_spent ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (sortBy === "total_orders") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY total_orders ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (sortBy === "first_name") {
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else {
+        // created_at veya diğer durumlar
+        result = await sql`
+          SELECT 
+            u.id, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.phone, 
+            u.created_at, 
+            u.is_active,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
+          ORDER BY u.created_at ${sql.unsafe(sortOrder.toUpperCase())}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      }
     }
 
     console.log("Veritabanı sonucu:", result)
     console.log("Sonuç tipi:", typeof result)
     console.log("Array mi?", Array.isArray(result))
+
+    // Sonucun array olduğundan emin ol
+    if (!Array.isArray(result)) {
+      console.error("Sonuç array değil:", result)
+      return NextResponse.json({
+        success: true,
+        users: [],
+      })
+    }
 
     // Neon'dan gelen sonuç zaten array formatında
     const users = result.map((row) => ({
