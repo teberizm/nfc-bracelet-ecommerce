@@ -1,22 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/database"
-import jwt from "jsonwebtoken"
 
-// Verify admin token
+// Simple admin token verification without JWT
 function verifyAdminToken(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return null
+      return false
     }
 
     const token = authHeader.substring(7)
-    const secret = process.env.ADMIN_JWT_SECRET || "admin-secret-key"
-    const decoded = jwt.verify(token, secret) as any
-    return decoded
+    // Simple token check - you can make this more sophisticated
+    const expectedToken = process.env.ADMIN_TOKEN || "admin-token-123"
+    return token === expectedToken
   } catch (error) {
     console.error("Token verification error:", error)
-    return null
+    return false
   }
 }
 
@@ -26,20 +25,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log(`Admin API: Fetching product with ID: ${params.id}`)
 
     // Verify admin authentication
-    const admin = verifyAdminToken(request)
-    if (!admin) {
+    if (!verifyAdminToken(request)) {
       return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
     }
 
     // Validate product ID
     if (!params.id || params.id.trim() === "") {
       return NextResponse.json({ success: false, message: "Geçersiz ürün ID'si" }, { status: 400 })
-    }
-
-    // Check database connection
-    if (!process.env.DATABASE_URL) {
-      console.error("DATABASE_URL environment variable is not set")
-      return NextResponse.json({ success: false, message: "Veritabanı bağlantısı yapılandırılmamış" }, { status: 500 })
     }
 
     // Fetch product details
@@ -114,19 +106,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   } catch (error) {
     console.error("Error fetching product:", error)
 
-    // More detailed error logging
-    if (error instanceof Error) {
-      console.error("Error name:", error.name)
-      console.error("Error message:", error.message)
-      console.error("Error stack:", error.stack)
-    }
-
     return NextResponse.json(
       {
         success: false,
         message: "Ürün detayı çekilirken hata oluştu",
-        error:
-          process.env.NODE_ENV === "development" ? (error instanceof Error ? error.message : String(error)) : undefined,
+        error: process.env.NODE_ENV === "development" ? String(error) : undefined,
       },
       { status: 500 },
     )
@@ -139,15 +123,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     console.log(`Admin API: Updating product with ID: ${params.id}`)
 
     // Verify admin authentication
-    const admin = verifyAdminToken(request)
-    if (!admin) {
+    if (!verifyAdminToken(request)) {
       return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
-    }
-
-    // Check database connection
-    if (!process.env.DATABASE_URL) {
-      console.error("DATABASE_URL environment variable is not set")
-      return NextResponse.json({ success: false, message: "Veritabanı bağlantısı yapılandırılmamış" }, { status: 500 })
     }
 
     // Parse request body
@@ -155,7 +132,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     console.log("Update data received:", { name: body.name, slug: body.slug, price: body.price })
 
     // Validate required fields
-    if (!body.name || !body.slug || !body.price) {
+    if (!body.name || !body.slug || body.price === undefined) {
       return NextResponse.json({ success: false, message: "Ürün adı, slug ve fiyat zorunludur" }, { status: 400 })
     }
 
@@ -297,15 +274,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     console.log(`Admin API: Deleting product with ID: ${params.id}`)
 
     // Verify admin authentication
-    const admin = verifyAdminToken(request)
-    if (!admin) {
+    if (!verifyAdminToken(request)) {
       return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
-    }
-
-    // Check database connection
-    if (!process.env.DATABASE_URL) {
-      console.error("DATABASE_URL environment variable is not set")
-      return NextResponse.json({ success: false, message: "Veritabanı bağlantısı yapılandırılmamış" }, { status: 500 })
     }
 
     // Check if product exists
