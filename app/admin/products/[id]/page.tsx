@@ -84,13 +84,9 @@ export default function AdminProductEditPage() {
 
         console.log(`Loading product with ID: ${params.id}`)
 
-        // Get admin token from localStorage
-        const adminToken = localStorage.getItem("adminToken") || "admin-token-123"
-
         const response = await fetch(`/api/admin/products/${params.id}`, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${adminToken}`,
             "Content-Type": "application/json",
           },
         })
@@ -161,13 +157,9 @@ export default function AdminProductEditPage() {
 
       console.log("Saving product:", product.name)
 
-      // Get admin token from localStorage
-      const adminToken = localStorage.getItem("adminToken") || "admin-token-123"
-
       const response = await fetch(`/api/admin/products/${product.id}`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${adminToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(product),
@@ -204,13 +196,9 @@ export default function AdminProductEditPage() {
     try {
       console.log("Deleting product:", product.name)
 
-      // Get admin token from localStorage
-      const adminToken = localStorage.getItem("adminToken") || "admin-token-123"
-
       const response = await fetch(`/api/admin/products/${product.id}`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${adminToken}`,
           "Content-Type": "application/json",
         },
       })

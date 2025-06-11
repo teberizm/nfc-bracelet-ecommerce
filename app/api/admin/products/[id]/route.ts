@@ -1,32 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/database"
 
-// Simple admin token verification
-function verifyAdminToken(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return false
-    }
-
-    const token = authHeader.substring(7)
-    const expectedToken = process.env.ADMIN_TOKEN || "admin-token-123"
-    return token === expectedToken
-  } catch (error) {
-    console.error("Token verification error:", error)
-    return false
-  }
-}
-
 // GET - Fetch a single product with all details
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Admin API: Fetching product with ID: ${params.id}`)
-
-    // Verify admin authentication
-    if (!verifyAdminToken(request)) {
-      return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
-    }
 
     // Validate product ID
     if (!params.id || params.id.trim() === "") {
@@ -120,11 +98,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Admin API: Updating product with ID: ${params.id}`)
-
-    // Verify admin authentication
-    if (!verifyAdminToken(request)) {
-      return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
-    }
 
     // Parse request body
     const body = await request.json()
@@ -271,11 +244,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Admin API: Deleting product with ID: ${params.id}`)
-
-    // Verify admin authentication
-    if (!verifyAdminToken(request)) {
-      return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
-    }
 
     // Check if product exists
     const productResult = await sql`
