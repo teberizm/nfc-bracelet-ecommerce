@@ -50,114 +50,99 @@ export async function POST(request: Request) {
     console.log("📦 Ürün verisi alındı:", productData.name)
 
     // Zorunlu alanları kontrol et
-    if (!productData.name || !productData.slug) {
+    if (!productData.name) {
       return NextResponse.json(
         {
           success: false,
-          message: "Ürün adı ve slug zorunludur",
+          message: "Ürün adı zorunludur",
         },
         { status: 400 },
       )
     }
 
+    // Slug oluştur veya kontrol et
+    let slug = productData.slug
+    if (!slug) {
+      slug = productData.name
+        .toLowerCase()
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .replace(/ş/g, "s")
+        .replace(/ı/g, "i")
+        .replace(/ö/g, "o")
+        .replace(/ç/g, "c")
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+    }
+
     // Ürün ID'si oluştur
     const productId = uuidv4()
+    console.log("🆔 Ürün ID:", productId)
 
     // Ana ürün kaydını oluştur
-    await sql`
-      INSERT INTO products (
-        id, name, slug, description, short_description, price, original_price,
-        stock, category_id, nfc_enabled, is_active, weight, dimensions, material,
-        featured, meta_title, meta_description, video_360_url
-      ) VALUES (
-        ${productId}, 
-        ${productData.name}, 
-        ${productData.slug}, 
-        ${productData.description || ""}, 
-        ${productData.short_description || ""}, 
-        ${productData.price || 0}, 
-        ${productData.original_price || null},
-        ${productData.stock || 0}, 
-        ${productData.category_id || null}, 
-        ${productData.nfc_enabled || false}, 
-        ${productData.is_active !== false}, 
-        ${productData.weight || ""}, 
-        ${productData.dimensions || ""}, 
-        ${productData.material || ""}, 
-        ${productData.featured || false}, 
-        ${productData.meta_title || null}, 
-        ${productData.meta_description || null}, 
-        ${productData.video_360_url || null}
-      )
-    `
-
-    console.log("✅ Ana ürün kaydedildi:", productId)
+    try {
+      await sql`
+        INSERT INTO products (
+          id, name, slug, description, short_description, price, 
+          stock, nfc_enabled, is_active
+        ) VALUES (
+          ${productId}, 
+          ${productData.name}, 
+          ${slug}, 
+          ${productData.description || ""}, 
+          ${productData.short_description || ""}, 
+          ${Number.parseFloat(productData.price) || 0}, 
+          ${Number.parseInt(productData.stock) || 0}, 
+          ${Boolean(productData.nfc_enabled)}, 
+          true
+        )
+      `
+      console.log("✅ Ana ürün kaydedildi")
+    } catch (error) {
+      console.error("❌ Ana ürün kaydetme hatası:", error)
+      throw new Error("Ürün kaydedilemedi: " + (error instanceof Error ? error.message : "Bilinmeyen hata"))
+    }
 
     // Ürün resimlerini kaydet
-    if (productData.images && productData.images.length > 0) {
+    if (Array.isArray(productData.images) && productData.images.length > 0) {
       console.log("📸 Ürün resimleri kaydediliyor:", productData.images.length, "resim")
 
       for (let i = 0; i < productData.images.length; i++) {
         const image = productData.images[i]
-
-        await sql`
-          INSERT INTO product_images (
-            product_id, image_url, alt_text, is_primary, sort_order
-          ) VALUES (
-            ${productId}, 
-            ${image.image_url}, 
-            ${image.alt_text || productData.name}, 
-            ${image.is_primary || i === 0}, 
-            ${image.sort_order || i}
-          )
-        `
+        try {
+          await sql`
+            INSERT INTO product_images (
+              product_id, image_url, alt_text, is_primary, sort_order
+            ) VALUES (
+              ${productId}, 
+              ${image.image_url}, 
+              ${image.alt_text || productData.name}, 
+              ${i === 0}, 
+              ${i}
+            )
+          `
+        } catch (error) {
+          console.error(`❌ Resim ${i + 1} kaydetme hatası:`, error)
+          // Resim hatası olsa bile devam et
+        }
       }
-
       console.log("✅ Ürün resimleri kaydedildi")
     }
 
-    // Ürün özelliklerini kaydet
-    if (productData.features && productData.features.length > 0) {
-      console.log("🏷️ Ürün özellikleri kaydediliyor:", productData.features.length, "özellik")
-
-      for (const feature of productData.features) {
-        if (feature.feature_name && feature.feature_value) {
-          await sql`
-            INSERT INTO product_features (
-              product_id, feature_name, feature_value, sort_order
-            ) VALUES (
-              ${productId}, 
-              ${feature.feature_name}, 
-              ${feature.feature_value}, 
-              ${feature.sort_order || 0}
-            )
-          `
-        }
+    // 360 video varsa kaydet
+    if (productData.video_360_url) {
+      try {
+        await sql`
+          UPDATE products 
+          SET video_360_url = ${productData.video_360_url}
+          WHERE id = ${productId}
+        `
+        console.log("✅ 360° video kaydedildi")
+      } catch (error) {
+        console.error("❌ 360° video kaydetme hatası:", error)
+        // Video hatası olsa bile devam et
       }
-
-      console.log("✅ Ürün özellikleri kaydedildi")
-    }
-
-    // Teknik özellikleri kaydet
-    if (productData.specifications && productData.specifications.length > 0) {
-      console.log("🔧 Teknik özellikler kaydediliyor:", productData.specifications.length, "özellik")
-
-      for (const spec of productData.specifications) {
-        if (spec.spec_name && spec.spec_value) {
-          await sql`
-            INSERT INTO product_specifications (
-              product_id, spec_name, spec_value, sort_order
-            ) VALUES (
-              ${productId}, 
-              ${spec.spec_name}, 
-              ${spec.spec_value}, 
-              ${spec.sort_order || 0}
-            )
-          `
-        }
-      }
-
-      console.log("✅ Teknik özellikler kaydedildi")
     }
 
     console.log("🎉 Ürün başarıyla kaydedildi:", productId)
