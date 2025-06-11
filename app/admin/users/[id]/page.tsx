@@ -55,12 +55,16 @@ export default function UserDetailPage() {
       // Cache-busting için timestamp ekle
       const timestamp = new Date().getTime()
       const response = await fetch(`/api/admin/users/${params.id}?t=${timestamp}`, {
-        cache: "no-store",
+        method: "GET",
         headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
           Pragma: "no-cache",
-          "Cache-Control": "no-cache",
+          Expires: "0",
         },
+        cache: "no-store",
+        next: { revalidate: 0 },
       })
+
       const data = await response.json()
 
       console.log("API yanıtı:", data)
@@ -106,6 +110,8 @@ export default function UserDetailPage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
         },
         body: JSON.stringify({
           name: user.name,
@@ -113,6 +119,7 @@ export default function UserDetailPage() {
           phone: user.phone,
           status: user.status,
         }),
+        cache: "no-store",
       })
 
       const data = await response.json()
@@ -131,11 +138,13 @@ export default function UserDetailPage() {
         setOrders([])
         setIsLoading(true)
 
-        // Sonra yeni verileri çek
-        await fetchUserData()
-
-        // En son editing modunu kapat
-        setIsEditing(false)
+        // Kısa bir gecikme ekleyerek state'in temizlenmesini sağla
+        setTimeout(async () => {
+          // Sonra yeni verileri çek
+          await fetchUserData()
+          // En son editing modunu kapat
+          setIsEditing(false)
+        }, 100)
       } else {
         throw new Error(data.message)
       }

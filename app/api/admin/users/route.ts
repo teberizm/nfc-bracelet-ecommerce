@@ -132,10 +132,21 @@ export async function GET(request: Request) {
 
     console.log(`${users.length} kullanıcı formatlandı`)
 
-    return NextResponse.json({
-      success: true,
-      users,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        users,
+        timestamp: Date.now(), // Her seferinde farklı bir yanıt için
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+          "Surrogate-Control": "no-store",
+        },
+      },
+    )
   } catch (error) {
     console.error("Admin users hatası:", error)
     console.error("Hata stack:", error.stack)

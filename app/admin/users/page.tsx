@@ -53,13 +53,19 @@ export default function AdminUsersPage() {
       if (filters.search) params.append("search", filters.search)
       params.append("sortBy", filters.sortBy)
       params.append("sortOrder", filters.sortOrder)
+      // Cache busting için timestamp ekleyelim
+      params.append("t", Date.now().toString())
 
       console.log("API çağrısı yapılıyor:", `/api/admin/users?${params}`)
 
       const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
         },
+        cache: "no-store",
+        next: { revalidate: 0 },
       })
 
       if (!response.ok) {
