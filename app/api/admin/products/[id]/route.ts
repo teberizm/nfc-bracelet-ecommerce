@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/database"
 
-// Simple admin token verification
+//  Simple admin token verification
 function verifyAdminToken(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
