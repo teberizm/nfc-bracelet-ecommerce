@@ -75,70 +75,58 @@ export default function AdminProductEditPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("details")
 
-  // Mock data for development - replace with real API calls
+  // Fetch product from database
   useEffect(() => {
     const loadProduct = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        // Simulate API call delay
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        console.log(`Loading product with ID: ${params.id}`)
 
-        // Mock product data
-        const mockProduct: Product = {
-          id: params.id as string,
-          name: "NFC Aşk Bilekliği",
-          slug: "nfc-ask-bilekligi",
-          description:
-            "Sevdiklerinizle özel anılarınızı paylaşabileceğiniz NFC teknolojili bileklik. Telefonunuzu yaklaştırarak fotoğraf, video, müzik ve mesajlarınızı anında paylaşabilirsiniz.",
-          short_description: "NFC teknolojili özel tasarım bileklik",
-          price: 299.99,
-          original_price: 399.99,
-          stock: 50,
-          category_id: "1",
-          nfc_enabled: true,
-          is_active: true,
-          weight: "25g",
-          dimensions: "20cm x 1.5cm",
-          material: "Silikon + NFC Chip",
-          featured: true,
-          meta_title: "NFC Aşk Bilekliği - Özel Anılarınızı Paylaşın",
-          meta_description:
-            "NFC teknolojili bileklik ile sevdiklerinizle özel anılarınızı paylaşın. Fotoğraf, video, müzik ve mesajlarınızı anında aktarın.",
-          features: [
-            { id: "1", feature_name: "NFC Teknolojisi", feature_value: "13.56 MHz", sort_order: 0 },
-            { id: "2", feature_name: "Su Geçirmez", feature_value: "IP67", sort_order: 1 },
-            { id: "3", feature_name: "Batarya", feature_value: "Gereksiz", sort_order: 2 },
-          ],
-          specifications: [
-            { id: "1", spec_name: "Boyut", spec_value: "20cm x 1.5cm", sort_order: 0 },
-            { id: "2", spec_name: "Ağırlık", spec_value: "25g", sort_order: 1 },
-            { id: "3", spec_name: "Malzeme", spec_value: "Silikon + NFC Chip", sort_order: 2 },
-            { id: "4", spec_name: "Renk", spec_value: "Siyah, Beyaz, Kırmızı", sort_order: 3 },
-          ],
-          images: [
-            {
-              id: "1",
-              image_url: "/placeholder.svg?height=400&width=400&text=Ana+Resim",
-              alt_text: "NFC Aşk Bilekliği Ana Resim",
-              sort_order: 0,
-              is_primary: true,
-            },
-            {
-              id: "2",
-              image_url: "/placeholder.svg?height=400&width=400&text=Yan+Görünüm",
-              alt_text: "NFC Aşk Bilekliği Yan Görünüm",
-              sort_order: 1,
-              is_primary: false,
-            },
-          ],
+        // Get admin token from localStorage
+        const adminToken = localStorage.getItem("adminToken") || "admin-token-123"
+
+        const response = await fetch(`/api/admin/products/${params.id}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
         }
 
-        setProduct(mockProduct)
+        const data = await response.json()
+
+        if (!data.success) {
+          throw new Error(data.message || "Ürün yüklenirken bir hata oluştu")
+        }
+
+        // Normalize the data from database
+        const productData = {
+          ...data.product,
+          // String'den number'a dönüştür
+          price: Number.parseFloat(data.product.price) || 0,
+          original_price: data.product.original_price ? Number.parseFloat(data.product.original_price) : null,
+          stock: Number.parseInt(data.product.stock) || 0,
+          // Weight string olarak kalsın (veritabanında string)
+          weight: data.product.weight || "",
+          // Arrays'leri kontrol et
+          features: Array.isArray(data.product.features) ? data.product.features : [],
+          specifications: Array.isArray(data.product.specifications) ? data.product.specifications : [],
+          images: Array.isArray(data.product.images) ? data.product.images : [],
+        }
+
+        setProduct(productData)
+        console.log("Product loaded successfully:", productData.name)
       } catch (err) {
-        setError("Ürün yüklenirken bir hata oluştu")
         console.error("Error loading product:", err)
+        setError(err instanceof Error ? err.message : "Ürün yüklenirken bir hata oluştu")
+        toast.error("Ürün yüklenirken bir hata oluştu")
       } finally {
         setLoading(false)
       }
@@ -171,14 +159,36 @@ export default function AdminProductEditPage() {
         return
       }
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      console.log("Saving product:", product.name)
 
-      console.log("Saving product:", product)
+      // Get admin token from localStorage
+      const adminToken = localStorage.getItem("adminToken") || "admin-token-123"
+
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(product),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.message || "Ürün güncellenirken bir hata oluştu")
+      }
+
       toast.success("Ürün başarıyla güncellendi")
+      console.log("Product saved successfully")
     } catch (err) {
       console.error("Error saving product:", err)
-      toast.error("Ürün güncellenirken bir hata oluştu")
+      toast.error(err instanceof Error ? err.message : "Ürün güncellenirken bir hata oluştu")
     } finally {
       setSaving(false)
     }
@@ -187,19 +197,40 @@ export default function AdminProductEditPage() {
   const handleDelete = async () => {
     if (!product) return
 
-    if (!confirm("Bu ürünü silmek istediğinizden emin misiniz?")) {
+    if (!confirm("Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
       return
     }
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      console.log("Deleting product:", product.name)
+
+      // Get admin token from localStorage
+      const adminToken = localStorage.getItem("adminToken") || "admin-token-123"
+
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.message || "Ürün silinirken bir hata oluştu")
+      }
 
       toast.success("Ürün başarıyla silindi")
       router.push("/admin/products")
     } catch (err) {
       console.error("Error deleting product:", err)
-      toast.error("Ürün silinirken bir hata oluştu")
+      toast.error(err instanceof Error ? err.message : "Ürün silinirken bir hata oluştu")
     }
   }
 
@@ -337,10 +368,16 @@ export default function AdminProductEditPage() {
             <div className="text-red-500 text-5xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold mb-2">Hata Oluştu</h3>
             <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Tekrar Dene
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tekrar Dene
+              </Button>
+              <Button variant="outline" onClick={() => router.push("/admin/products")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Geri Dön
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -565,6 +602,9 @@ export default function AdminProductEditPage() {
                         src={image.image_url || "/placeholder.svg"}
                         alt={image.alt_text}
                         className="w-full h-full object-contain rounded-md border"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg?height=400&width=400&text=Resim+Yüklenemedi"
+                        }}
                       />
                       {image.is_primary && <Badge className="absolute top-2 left-2 bg-green-500">Ana Resim</Badge>}
                     </div>
@@ -595,6 +635,14 @@ export default function AdminProductEditPage() {
                   </div>
                 ))}
               </div>
+
+              {product.images.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-4">📷</div>
+                  <p>Henüz resim eklenmemiş</p>
+                  <p className="text-sm">Resim eklemek için "Resim Ekle" butonuna tıklayın</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -614,6 +662,12 @@ export default function AdminProductEditPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {product.features.length === 0 && (
+                    <div className="text-center py-4 text-gray-500">
+                      Henüz özellik eklenmemiş. Özellik eklemek için "Özellik Ekle" butonuna tıklayın.
+                    </div>
+                  )}
+
                   {product.features.map((feature, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-5">
@@ -667,6 +721,12 @@ export default function AdminProductEditPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {product.specifications.length === 0 && (
+                    <div className="text-center py-4 text-gray-500">
+                      Henüz teknik özellik eklenmemiş. Özellik eklemek için "Özellik Ekle" butonuna tıklayın.
+                    </div>
+                  )}
+
                   {product.specifications.map((spec, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-5">

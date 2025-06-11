@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/database"
 
-// Simple admin token verification without JWT
+// Simple admin token verification
 function verifyAdminToken(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
@@ -10,7 +10,6 @@ function verifyAdminToken(request: NextRequest) {
     }
 
     const token = authHeader.substring(7)
-    // Simple token check - you can make this more sophisticated
     const expectedToken = process.env.ADMIN_TOKEN || "admin-token-123"
     return token === expectedToken
   } catch (error) {
@@ -159,8 +158,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         slug = ${body.slug},
         description = ${body.description || ""},
         short_description = ${body.short_description || ""},
-        price = ${price},
-        original_price = ${body.original_price ? Number.parseFloat(body.original_price) : null},
+        price = ${price.toString()},
+        original_price = ${body.original_price ? Number.parseFloat(body.original_price).toString() : null},
         stock = ${Number.parseInt(body.stock) || 0},
         category_id = ${body.category_id || null},
         nfc_enabled = ${body.nfc_enabled || false},
