@@ -1,242 +1,199 @@
-import { NextResponse } from "next/server"
-import { verifyAdminToken } from "@/lib/auth"
-import { sql } from "@/lib/database"
-
 export const dynamic = "force-dynamic"
 
-export async function GET(request: Request) {
+import { type NextRequest, NextResponse } from "next/server"
+import { sql } from "@/lib/database"
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("Admin users API çağrısı başladı")
+    console.log("Kullanıcı detayı çekiliyor, ID:", params.id)
 
-    // Admin token'ını doğrula
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+    // Connection pooling sorununu çözmek için kısa bir bekleme
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Kullanıcı bilgilerini çek - gerçek sütun isimleri ile
+    const userResult = await sql`
+      SELECT 
+        id,
+        email,
+        first_name,
+        last_name,
+        phone,
+        avatar_url,
+        email_verified,
+        is_active,
+        created_at,
+        updated_at
+      FROM users 
+      WHERE id = ${params.id}
+    `
+
+    console.log("Veritabanından çekilen RAW veri:", userResult[0])
+
+    if (!userResult || userResult.length === 0) {
+      return NextResponse.json({ success: false, message: "Kullanıcı bulunamadı" }, { status: 404 })
     }
 
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
+    const user = userResult[0]
 
-    if (!adminPayload) {
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
+    // Sipariş sayısını çek
+    const orderCountResult = await sql`
+      SELECT COUNT(*) as count
+      FROM orders 
+      WHERE user_id = ${params.id}
+    `
+
+    // Toplam harcamayı çek
+    const totalSpentResult = await sql`
+      SELECT COALESCE(SUM(total_amount), 0) as total
+      FROM orders 
+      WHERE user_id = ${params.id}
+    `
+
+    // Siparişleri çek
+    const ordersResult = await sql`
+      SELECT 
+        id,
+        created_at,
+        status,
+        total_amount
+      FROM orders
+      WHERE user_id = ${params.id}
+      ORDER BY created_at DESC
+    `
+
+    console.log("Sipariş sayısı:", orderCountResult[0]?.count || 0)
+    console.log("Toplam harcama:", totalSpentResult[0]?.total || 0)
+    console.log("Siparişler:", ordersResult)
+
+    // Verileri normalize et - gerçek sütunlara göre
+    const userData = {
+      id: user.id,
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      avatar: user.avatar_url || "",
+      emailVerified: user.email_verified || false,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+      lastLogin: null, // Bu sütun yok, null yapıyoruz
+      status: user.is_active ? "active" : "inactive",
+      totalOrders: Number(orderCountResult[0]?.count || 0),
+      totalSpent: Number(totalSpentResult[0]?.total || 0),
+      notes: "", // Bu sütun yok, boş string yapıyoruz
     }
 
-    // URL parametrelerini al
-    const { searchParams } = new URL(request.url)
-    const search = searchParams.get("search") || ""
-    const sortBy = searchParams.get("sortBy") || "created_at"
-    const sortOrder = searchParams.get("sortOrder") || "desc"
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    console.log("Normalize edilmiş kullanıcı:", userData)
+    console.log("İsim birleştirme:", `"${user.first_name}" + " " + "${user.last_name}" = "${userData.name}"`)
 
-    console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
-
-    let result
-
-    // Arama varsa
-    if (search) {
-      console.log("Arama ile kullanıcılar çekiliyor:", search)
-
-      // Sıralama türüne göre sorgu
-      if (sortBy === "total_spent") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY total_spent ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (sortBy === "total_orders") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY total_orders ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (sortBy === "first_name") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else {
-        // created_at veya diğer durumlar
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY u.created_at ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      }
-    } else {
-      // Arama yoksa
-      console.log("Tüm kullanıcılar çekiliyor")
-
-      if (sortBy === "total_spent") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY total_spent ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (sortBy === "total_orders") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY total_orders ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (sortBy === "first_name") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else {
-        // created_at veya diğer durumlar
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.is_active
-          ORDER BY u.created_at ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      }
-    }
-
-    console.log("Veritabanı sonucu:", result)
-    console.log("Sonuç tipi:", typeof result)
-    console.log("Array mi?", Array.isArray(result))
-
-    // Sonucun array olduğundan emin ol
-    if (!Array.isArray(result)) {
-      console.error("Sonuç array değil:", result)
-      return NextResponse.json({
-        success: true,
-        users: [],
-      })
-    }
-
-    // Neon'dan gelen sonuç zaten array formatında
-    const users = result.map((row) => ({
-      id: row.id,
-      email: row.email,
-      first_name: row.first_name,
-      last_name: row.last_name,
-      phone: row.phone,
-      created_at: row.created_at,
-      is_active: row.is_active,
-      total_orders: Number.parseInt(row.total_orders || "0"),
-      total_spent: Number.parseFloat(row.total_spent || "0"),
+    // Siparişleri normalize et
+    const orders = ordersResult.map((order) => ({
+      id: order.id,
+      date: new Date(order.created_at).toLocaleDateString("tr-TR"),
+      status: order.status,
+      total: Number(order.total_amount || 0),
+      products: ["NFC Bileklik"], // Basit ürün adı
     }))
 
-    console.log(`${users.length} kullanıcı formatlandı`)
-
-    return NextResponse.json({
-      success: true,
-      users,
-    })
-  } catch (error) {
-    console.error("Admin users hatası:", error)
-    console.error("Hata stack:", error.stack)
+    // Cache-busting header'ları ekle
+    return NextResponse.json(
+      {
+        success: true,
+        user: userData,
+        orders: orders,
+        timestamp: Date.now(), // Her seferinde farklı bir response için
+        debug: {
+          rawFirstName: user.first_name,
+          rawLastName: user.last_name,
+          combinedName: userData.name,
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+          "Surrogate-Control": "no-store",
+        },
+      },
+    )
+  } catch (error: any) {
+    console.error("Kullanıcı detayı hatası:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Kullanıcılar çekilirken hata oluştu",
+        message: "Kullanıcı detayı çekilirken hata oluştu",
         error: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const body = await request.json()
+    const { first_name, last_name, email, phone, status } = body
+
+    console.log("=== Kullanıcı güncelleme başladı ===")
+    console.log("Gelen veriler:", { first_name, last_name, email, phone, status })
+    console.log("Kullanıcı ID:", params.id)
+
+    // İsmi parçalara ayır
+    const nameParts = name.split(" ")
+    const firstName = nameParts[0] || ""
+    const lastName = nameParts.slice(1).join(" ") || ""
+
+    console.log("Parçalanmış isim:", { firstName, lastName })
+
+    // Önce mevcut veriyi kontrol et
+    const beforeUpdate = await sql`
+      SELECT first_name, last_name, email, phone, is_active 
+      FROM users 
+      WHERE id = ${params.id}
+    `
+    console.log("Güncelleme öncesi veri:", beforeUpdate[0])
+
+    // Güncelleme yap
+    const updateResult = await sql`
+      UPDATE users 
+      SET 
+        first_name = ${first_name},
+        last_name = ${last_name},
+        email = ${email},
+        phone = ${phone},
+        is_active = ${status === "active"},
+        updated_at = NOW()
+      WHERE id = ${params.id}
+    `
+
+    console.log("UPDATE sorgu sonucu:", updateResult)
+
+    // Güncelleme sonrası veriyi kontrol et - AYNI CONNECTION'DA
+    const afterUpdate = await sql`
+      SELECT first_name, last_name, email, phone, is_active, updated_at
+      FROM users 
+      WHERE id = ${params.id}
+    `
+    console.log("Güncelleme sonrası veri:", afterUpdate[0])
+
+    console.log("=== Kullanıcı güncelleme tamamlandı ===")
+
+    return NextResponse.json({
+      success: true,
+      message: "Kullanıcı güncellendi",
+      before: beforeUpdate[0],
+      after: afterUpdate[0],
+    })
+  } catch (error: any) {
+    console.error("=== Kullanıcı güncelleme hatası ===")
+    console.error("Hata:", error)
+    console.error("Hata mesajı:", error.message)
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Güncelleme hatası",
+        error: error.message,
       },
       { status: 500 },
     )

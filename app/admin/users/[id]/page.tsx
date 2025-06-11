@@ -14,7 +14,8 @@ import { toast } from "sonner"
 
 interface User {
   id: string
-  name: string
+  first_name: string
+  last_name: string
   email: string
   phone: string
   createdAt: string
@@ -96,7 +97,8 @@ export default function UserDetailPage() {
       setIsSaving(true)
       console.log("=== Kullanıcı güncelleme başladı ===")
       console.log("Gönderilecek veriler:", {
-        name: user.name,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         phone: user.phone,
         status: user.status,
@@ -108,7 +110,8 @@ export default function UserDetailPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: user.name,
+          first_name: user.first_name,
+          last_name: user.last_name,
           email: user.email,
           phone: user.phone,
           status: user.status,
@@ -249,7 +252,9 @@ export default function UserDetailPage() {
             Geri
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{user.name}</h1>
+            <h1 className="text-2xl font-bold">
+              {user.first_name} {user.last_name}
+            </h1>
             <p className="text-gray-500">Kullanıcı Detayları</p>
           </div>
         </div>
@@ -291,11 +296,20 @@ export default function UserDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Ad Soyad</Label>
+                  <Label htmlFor="first_name">Ad</Label>
                   <Input
-                    id="name"
-                    value={user.name}
-                    onChange={(e) => setUser({ ...user, name: e.target.value })}
+                    id="first_name"
+                    value={user.first_name}
+                    onChange={(e) => setUser({ ...user, first_name: e.target.value })}
+                    disabled={!isEditing}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Soyad</Label>
+                  <Input
+                    id="last_name"
+                    value={user.last_name}
+                    onChange={(e) => setUser({ ...user, last_name: e.target.value })}
                     disabled={!isEditing}
                   />
                 </div>
