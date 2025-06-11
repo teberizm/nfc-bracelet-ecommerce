@@ -6,7 +6,6 @@ if (!process.env.DATABASE_URL) {
 
 // Neon bağlantı ayarları - önbelleği devre dışı bırak
 neonConfig.fetchConnectionCache = false
-neonConfig.wsConnectionCache = false
 
 // Her sorguda yeni bir bağlantı oluştur
 export const sql = neon(process.env.DATABASE_URL)
@@ -622,41 +621,107 @@ export async function getAllUsersForAdmin(filters: {
 
     console.log("Taze veritabanı bağlantısı oluşturuldu:", new Date().toISOString())
 
-    let query = `
-      SELECT u.*, 
-             COUNT(o.id) as total_orders,
-             COALESCE(SUM(o.total_amount), 0) as total_spent
-      FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id
-    `
+    // Güvenli sütun adları için whitelist
+    const allowedSortColumns = ["created_at", "first_name", "last_name", "email", "updated_at"]
+    const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : "created_at"
+    const safeSortOrder = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC"
 
-    const whereConditions = ["u.is_active = true"]
-    const queryParams = []
+    let result
 
     if (search) {
-      whereConditions.push(`(
-        u.first_name ILIKE $${queryParams.length + 1} OR 
-        u.last_name ILIKE $${queryParams.length + 1} OR 
-        u.email ILIKE $${queryParams.length + 1} OR
-        u.phone ILIKE $${queryParams.length + 1}
-      )`)
-      queryParams.push(`%${search}%`)
+      const searchPattern = `%${search}%`
+
+      if (safeSortBy === "created_at") {
+        result = await freshSql`
+          SELECT u.*, 
+                 COUNT(o.id) as total_orders,
+                 COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE u.is_active = true AND (
+            u.first_name ILIKE ${searchPattern} OR 
+            u.last_name ILIKE ${searchPattern} OR 
+            u.email ILIKE ${searchPattern} OR
+            u.phone ILIKE ${searchPattern}
+          )
+          GROUP BY u.id
+          ORDER BY u.created_at ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (safeSortBy === "first_name") {
+        result = await freshSql`
+          SELECT u.*, 
+                 COUNT(o.id) as total_orders,
+                 COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE u.is_active = true AND (
+            u.first_name ILIKE ${searchPattern} OR 
+            u.last_name ILIKE ${searchPattern} OR 
+            u.email ILIKE ${searchPattern} OR
+            u.phone ILIKE ${searchPattern}
+          )
+          GROUP BY u.id
+          ORDER BY u.first_name ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else {
+        result = await freshSql`
+          SELECT u.*, 
+                 COUNT(o.id) as total_orders,
+                 COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE u.is_active = true AND (
+            u.first_name ILIKE ${searchPattern} OR 
+            u.last_name ILIKE ${searchPattern} OR 
+            u.email ILIKE ${searchPattern} OR
+            u.phone ILIKE ${searchPattern}
+          )
+          GROUP BY u.id
+          ORDER BY u.email ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      }
+    } else {
+      if (safeSortBy === "created_at") {
+        result = await freshSql`
+          SELECT u.*, 
+                 COUNT(o.id) as total_orders,
+                 COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE u.is_active = true
+          GROUP BY u.id
+          ORDER BY u.created_at ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else if (safeSortBy === "first_name") {
+        result = await freshSql`
+          SELECT u.*, 
+                 COUNT(o.id) as total_orders,
+                 COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE u.is_active = true
+          GROUP BY u.id
+          ORDER BY u.first_name ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      } else {
+        result = await freshSql`
+          SELECT u.*, 
+                 COUNT(o.id) as total_orders,
+                 COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON u.id = o.user_id
+          WHERE u.is_active = true
+          GROUP BY u.id
+          ORDER BY u.email ${safeSortOrder === "ASC" ? freshSql`ASC` : freshSql`DESC`}
+          LIMIT ${limit} OFFSET ${offset}
+        `
+      }
     }
-
-    query += ` WHERE ${whereConditions.join(" AND ")}`
-
-    query += `
-      GROUP BY u.id
-      ORDER BY u.${sortBy} ${sortOrder}
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-    `
-
-    queryParams.push(limit, offset)
-
-    console.log("SQL sorgusu çalıştırılıyor:", query)
-    console.log("Parametreler:", queryParams)
-
-    const result = await freshSql.unsafe(query, ...queryParams)
 
     console.log("Veritabanı sonucu alındı:", new Date().toISOString())
     console.log("Sonuç sayısı:", result.length)
