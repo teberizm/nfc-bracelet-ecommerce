@@ -85,6 +85,12 @@ export default function AdminUsersPage() {
     }
   }
 
+  // Güvenli sayı formatlaması
+  const formatNumber = (value: any): string => {
+    const num = Number(value || 0)
+    return isNaN(num) ? "0" : num.toLocaleString("tr-TR")
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -185,10 +191,10 @@ export default function AdminUsersPage() {
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
                         <ShoppingBag className="h-4 w-4" />
-                        <span>{user.total_orders} sipariş</span>
+                        <span>{formatNumber(user.total_orders)} sipariş</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="font-medium">{user.total_spent.toLocaleString("tr-TR")} ₺</span>
+                        <span className="font-medium">{formatNumber(user.total_spent)} ₺</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />

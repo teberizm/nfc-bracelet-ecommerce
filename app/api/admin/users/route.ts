@@ -231,16 +231,17 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Kullanıcıları normalize et
+    // Kullanıcıları normalize et - Frontend'in beklediği format
     const users = result.map((user) => ({
       id: user.id,
-      name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
       email: user.email,
-      phone: user.phone,
-      createdAt: user.created_at,
-      status: user.is_active ? "active" : "inactive",
-      totalOrders: Number(user.total_orders || 0),
-      totalSpent: Number(user.total_spent || 0),
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      phone: user.phone || "",
+      created_at: user.created_at,
+      is_active: user.is_active,
+      total_orders: Number(user.total_orders || 0),
+      total_spent: Number(user.total_spent || 0),
     }))
 
     const total = Number(totalResult[0]?.count || 0)
