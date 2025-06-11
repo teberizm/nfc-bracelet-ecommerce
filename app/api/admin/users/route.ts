@@ -37,9 +37,14 @@ export async function GET(request: Request) {
     const freshSql = getFreshConnection()
     console.log("Taze veritabanı bağlantısı oluşturuldu")
 
-    // Önce basit bir sorgu ile tüm kullanıcıları çekelim
+    // Güvenli sütun adları için whitelist
+    const allowedSortColumns = ["created_at", "first_name", "last_name", "email", "updated_at"]
+    const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : "created_at"
+    const safeSortOrder = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC"
+
     console.log("=== Veritabanından kullanıcılar çekiliyor ===")
 
+    // Basit bir sorgu ile başlayalım
     const result = await freshSql`
       SELECT 
         u.id, 
@@ -50,48 +55,30 @@ export async function GET(request: Request) {
         u.created_at, 
         u.updated_at,
         u.is_active,
-        COUNT(o.id) as total_orders,
-        COALESCE(SUM(o.total_amount), 0) as total_spent
+        0 as total_orders,
+        0 as total_spent
       FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id
-      ${search ? freshSql`WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})` : freshSql``}
-      GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
-      ORDER BY u.${freshSql(sortBy)} ${freshSql.unsafe(sortOrder.toUpperCase())}
-      LIMIT ${limit} OFFSET ${offset}
+      WHERE u.is_active = true
+      ORDER BY u.created_at DESC
+      LIMIT ${limit}
     `
 
     console.log("=== RAW Veritabanı Sonucu ===")
     console.log("Sonuç sayısı:", result.length)
-    result.forEach((row, index) => {
-      console.log(`Kullanıcı ${index + 1}:`, {
-        id: row.id,
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone: row.phone,
-        updated_at: row.updated_at,
-        is_active: row.is_active,
-      })
-    })
 
     // Verileri formatla
-    const users = result.map((row) => {
-      const user = {
-        id: row.id,
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone: row.phone,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        is_active: row.is_active,
-        total_orders: Number.parseInt(row.total_orders || "0"),
-        total_spent: Number.parseFloat(row.total_spent || "0"),
-      }
-
-      console.log("Formatlanmış kullanıcı:", user)
-      return user
-    })
+    const users = result.map((row) => ({
+      id: row.id,
+      email: row.email,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      phone: row.phone,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      is_active: row.is_active,
+      total_orders: 0,
+      total_spent: 0,
+    }))
 
     console.log("=== API Yanıtı Hazırlanıyor ===")
     console.log("Toplam kullanıcı sayısı:", users.length)
@@ -118,12 +105,15 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("=== Admin users hatası ===")
     console.error("Hata:", error)
+    console.error("Hata mesajı:", error.message)
     console.error("Hata stack:", error.stack)
+
     return NextResponse.json(
       {
         success: false,
         message: "Kullanıcılar çekilirken hata oluştu",
         error: error.message,
+        details: error.toString(),
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 },
