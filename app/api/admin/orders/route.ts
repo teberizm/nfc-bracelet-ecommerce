@@ -18,91 +18,123 @@ export async function GET(request: Request) {
 
     console.log("📊 Parametreler:", { search, status, sortBy, sortOrder, limit, offset })
 
-    // Basit orders sorgusu
-    let baseQuery = `
+    // Template literals kullanarak sorgu oluştur
+    const query = sql`
       SELECT 
-        o.id,
-        o.order_number,
+        o.id, 
+        o.order_number, 
         o.user_id,
         o.subtotal,
         o.total_amount,
         o.status,
         o.created_at,
-        o.payment_method,
-        u.first_name,
-        u.last_name,
-        u.email as user_email,
-        u.phone as user_phone
+        o.payment_method
       FROM orders o
-      JOIN users u ON o.user_id = u.id
     `
 
+    // Filtreler için koşullar
     const conditions = []
-    const params = []
+    let whereClause = sql``
 
-    // Status filtresi
-    if (status && status !== "" && status !== "all") {
-      conditions.push(`o.status = $${params.length + 1}`)
-      params.push(status)
+    if (status && status !== "all") {
+      conditions.push(sql`o.status = ${status}`)
     }
 
-    // Search filtresi
-    if (search && search !== "") {
-      conditions.push(
-        `(o.order_number ILIKE $${params.length + 1} OR u.first_name ILIKE $${params.length + 1} OR u.last_name ILIKE $${params.length + 1})`,
-      )
-      params.push(`%${search}%`)
+    if (search) {
+      conditions.push(sql`o.order_number ILIKE ${"%" + search + "%"}`)
     }
 
-    // WHERE koşulları
+    // WHERE koşullarını ekle
     if (conditions.length > 0) {
-      baseQuery += ` WHERE ${conditions.join(" AND ")}`
+      whereClause = sql` WHERE ${sql.join(conditions, sql` AND `)} `
     }
 
-    // Güvenli sıralama
-    const allowedSortFields = ["created_at", "order_number", "total_amount", "status"]
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : "created_at"
+    // Sıralama
+    const validSortFields = ["created_at", "order_number", "total_amount", "status"]
+    const safeSortBy = validSortFields.includes(sortBy) ? sortBy : "created_at"
     const safeSortOrder = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC"
 
-    baseQuery += ` ORDER BY o.${safeSortBy} ${safeSortOrder}`
-    baseQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-    params.push(limit, offset)
+    // Tam sorguyu oluştur
+    const fullQuery = sql`
+      ${query}
+      ${whereClause}
+      ORDER BY o.${sql.identifier(safeSortBy)} ${sql.raw(safeSortOrder)}
+      LIMIT ${limit} OFFSET ${offset}
+    `
 
-    console.log("🔍 SQL Query:", baseQuery)
+    console.log("🔍 SQL Query hazırlandı")
 
     // Sorguyu çalıştır
-    const orders = await sql.unsafe(baseQuery, ...params)
+    const orders = await fullQuery
     console.log("✅ Orders çekildi:", orders.length)
 
-    // Her sipariş için items çek
-    const ordersWithItems = await Promise.all(
+    // Her sipariş için kullanıcı bilgilerini ve ürünleri çek
+    const ordersWithDetails = await Promise.all(
       orders.map(async (order) => {
-        const items = await sql`
-          SELECT id, product_name, quantity, unit_price, total_price, nfc_enabled
-          FROM order_items 
-          WHERE order_id = ${order.id}
-        `
+        try {
+          // Kullanıcı bilgilerini çek
+          const users = await sql`
+            SELECT first_name, last_name, email, phone 
+            FROM users 
+            WHERE id = ${order.user_id}
+            LIMIT 1
+          `
+          const user = users[0] || {}
 
-        return {
-          ...order,
-          items: items || [],
+          // Sipariş ürünlerini çek
+          const items = await sql`
+            SELECT id, product_name, quantity, unit_price, total_price
+            FROM order_items 
+            WHERE order_id = ${order.id}
+          `
+
+          return {
+            ...order,
+            user_email: user.email || "Bilinmiyor",
+            first_name: user.first_name || "Bilinmiyor",
+            last_name: user.last_name || "Bilinmiyor",
+            user_phone: user.phone || "",
+            items: items || [],
+          }
+        } catch (error) {
+          console.error(`❌ Order ${order.id} için detaylar alınamadı:`, error)
+          return {
+            ...order,
+            user_email: "Hata",
+            first_name: "Hata",
+            last_name: "Hata",
+            user_phone: "",
+            items: [],
+          }
         }
       }),
     )
 
+    console.log("✅ Tüm veriler hazır:", ordersWithDetails.length)
+
     return NextResponse.json({
       success: true,
-      orders: ordersWithItems,
-      total: ordersWithItems.length,
+      orders: ordersWithDetails,
+      total: ordersWithDetails.length,
     })
   } catch (error) {
     console.error("❌ Admin orders hatası:", error)
+
+    // Detaylı hata bilgisi
+    const errorInfo = {
+      message: error instanceof Error ? error.message : "Bilinmeyen hata",
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : "UnknownError",
+    }
+
+    console.error("❌ Hata detayları:", errorInfo)
 
     return NextResponse.json(
       {
         success: false,
         message: "Siparişler yüklenirken hata oluştu",
-        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+        error: errorInfo.message,
+        debug: errorInfo,
       },
       { status: 500 },
     )
