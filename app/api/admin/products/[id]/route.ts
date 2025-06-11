@@ -1,24 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/database"
-import { verifyAdminToken } from "@/lib/auth"
 
 // GET - Fetch a single product with all details
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Fetching product with ID: ${params.id}`)
-
-    // Admin token kontrolü - Users API'si ile aynı pattern
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
 
     // Fetch product details
     const productResult = await sql`
@@ -83,19 +69,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Updating product with ID: ${params.id}`)
-
-    // Admin token kontrolü
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
 
     // Parse request body
     const body = await request.json()
@@ -202,19 +175,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Deleting product with ID: ${params.id}`)
-
-    // Admin token kontrolü
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
 
     // Check if product exists
     const productResult = await sql`
