@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { useAdmin } from "@/contexts/admin-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Search, RefreshCw, Package, Plus } from "lucide-react"
+import { Search, RefreshCw, Package, Plus, Edit } from "lucide-react"
 import Link from "next/link"
 
 interface Product {
@@ -190,4 +191,88 @@ export default function AdminProductsPage() {
               placeholder="Ürün adı veya kategori ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10\"
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Ürün Listesi */}
+      <div className="grid gap-4">
+        {filteredProducts.map((product) => (
+          <Card key={product.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={product.primary_image || "/placeholder.svg"}
+                    alt={product.name}
+                    className="w-16 h-16 object-cover rounded-lg border"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg?height=64&width=64&text=Hata"
+                    }}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold">{product.name}</h3>
+                      {product.is_active ? (
+                        <Badge variant="default">Aktif</Badge>
+                      ) : (
+                        <Badge variant="secondary">Pasif</Badge>
+                      )}
+                      {product.nfc_enabled && <Badge variant="outline">NFC</Badge>}
+                    </div>
+                    <p className="text-sm text-gray-600">{product.category_name}</p>
+                    <p className="text-sm text-gray-500">Stok: {product.stock} adet</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-green-600">{formatPrice(product.price)}</p>
+                  <p className="text-sm text-gray-500">{formatDate(product.created_at)}</p>
+                  <Button size="sm" className="mt-2" asChild>
+                    <Link href={`/admin/products/${product.id}`}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Düzenle
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredProducts.length === 0 && !loading && (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">
+              {search ? "Arama kriterlerine uygun ürün bulunamadı." : "Henüz ürün bulunmuyor."}
+            </p>
+            {products.length === 0 && (
+              <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  Veritabanında ürün bulunamadı. Önce ürün eklemeniz gerekebilir.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Debug bilgisi */}
+      {process.env.NODE_ENV === "development" && (
+        <Card className="mt-4">
+          <CardContent className="pt-4">
+            <details>
+              <summary className="cursor-pointer text-sm text-gray-600">Debug Bilgisi</summary>
+              <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto">
+                {JSON.stringify({ productsCount: products.length, filteredCount: filteredProducts.length }, null, 2)}
+              </pre>
+            </details>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
