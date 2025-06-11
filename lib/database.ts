@@ -100,7 +100,7 @@ export async function getAdminById(id: string) {
   }
 }
 
-// Product functions with better error handling
+// Product functions with better error handling and image support
 export async function getAllProducts(limit = 50, offset = 0) {
   try {
     const result = await sql`
@@ -117,29 +117,7 @@ export async function getAllProducts(limit = 50, offset = 0) {
             ) ORDER BY pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', pf.id,
-              'feature_name', pf.feature_name,
-              'feature_value', pf.feature_value,
-              'sort_order', pf.sort_order
-            ) ORDER BY pf.sort_order, pf.id
-          ) FROM product_features pf WHERE pf.product_id = p.id),
-          '[]'::json
-        ) as features,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ps.id,
-              'spec_name', ps.spec_name,
-              'spec_value', ps.spec_value,
-              'sort_order', ps.sort_order
-            ) ORDER BY ps.sort_order, ps.id
-          ) FROM product_specifications ps WHERE ps.product_id = p.id),
-          '[]'::json
-        ) as specifications
+        ) as product_images
       FROM products p
       WHERE p.is_active = true
       ORDER BY p.created_at DESC
@@ -168,29 +146,7 @@ export async function getProductBySlug(slug: string) {
             ) ORDER BY pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', pf.id,
-              'feature_name', pf.feature_name,
-              'feature_value', pf.feature_value,
-              'sort_order', pf.sort_order
-            ) ORDER BY pf.sort_order, pf.id
-          ) FROM product_features pf WHERE pf.product_id = p.id),
-          '[]'::json
-        ) as features,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ps.id,
-              'spec_name', ps.spec_name,
-              'spec_value', ps.spec_value,
-              'sort_order', ps.sort_order
-            ) ORDER BY ps.sort_order, ps.id
-          ) FROM product_specifications ps WHERE ps.product_id = p.id),
-          '[]'::json
-        ) as specifications
+        ) as product_images
       FROM products p
       WHERE p.slug = ${slug} AND p.is_active = true
       LIMIT 1
@@ -218,29 +174,7 @@ export async function getProductById(id: string) {
             ) ORDER BY pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', pf.id,
-              'feature_name', pf.feature_name,
-              'feature_value', pf.feature_value,
-              'sort_order', pf.sort_order
-            ) ORDER BY pf.sort_order, pf.id
-          ) FROM product_features pf WHERE pf.product_id = p.id),
-          '[]'::json
-        ) as features,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ps.id,
-              'spec_name', ps.spec_name,
-              'spec_value', ps.spec_value,
-              'sort_order', ps.sort_order
-            ) ORDER BY ps.sort_order, ps.id
-          ) FROM product_specifications ps WHERE ps.product_id = p.id),
-          '[]'::json
-        ) as specifications
+        ) as product_images
       FROM products p
       WHERE p.id = ${id} AND p.is_active = true
       LIMIT 1
@@ -269,7 +203,7 @@ export async function getProductsByCategory(categoryId: string, limit = 20, offs
             ) ORDER BY pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images
+        ) as product_images
       FROM products p
       WHERE p.category_id = ${categoryId} AND p.is_active = true
       ORDER BY p.created_at DESC
@@ -843,5 +777,17 @@ export async function getAllNFCContentForAdmin(filters: {
   } catch (error) {
     console.error("Error getting all NFC content for admin:", error)
     throw error
+  }
+}
+
+// Test bağlantısı için basit bir fonksiyon
+export async function testConnection() {
+  try {
+    const result = await sql`SELECT 1 as test`
+    console.log("Database connection test successful:", result)
+    return true
+  } catch (error) {
+    console.error("Database connection test failed:", error)
+    return false
   }
 }
