@@ -2,16 +2,16 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Package, ShoppingCart, Zap, Palette, Settings, BarChart3, LogOut } from "lucide-react"
+import { Users, Package, ShoppingCart, Zap, Palette, Settings, BarChart3, LogOut } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useAdmin } from "@/contexts/admin-context"
 
-// Menü öğelerini güncelle - LogOut'u kaldır ve menuItems'a ekle
+// Dashboard kaldırıldı, İstatistikler en başa alındı
 const menuItems = [
   {
-    title: "Dashboard",
-    icon: LayoutDashboard,
+    title: "İstatistikler",
+    icon: BarChart3,
     href: "/admin",
     exact: true,
   },
@@ -43,11 +43,6 @@ const menuItems = [
     title: "Temalar",
     icon: Palette,
     href: "/admin/themes",
-  },
-  {
-    title: "İstatistikler",
-    icon: BarChart3,
-    href: "/admin/analytics",
   },
   {
     title: "Ayarlar",
