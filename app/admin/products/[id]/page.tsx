@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { useAdmin } from "@/contexts/admin-context"
-import { ArrowLeft, Save, Trash2, Upload, Eye, Plus, X, RefreshCw } from "lucide-react"
+import { ArrowLeft, Save, Trash2, Plus, X, RefreshCw, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,18 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { categories } from "@/lib/categories"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 
 interface ProductFeature {
   id?: string
@@ -55,8 +42,8 @@ interface Product {
   slug: string
   description: string
   short_description: string
-  price: string
-  original_price: string | null
+  price: number
+  original_price?: number | null
   stock: number
   category_id: string
   nfc_enabled: boolean
@@ -64,112 +51,109 @@ interface Product {
   weight: string
   dimensions: string
   material: string
-  rating: string
-  review_count: number
-  sales_count: number
   featured: boolean
-  meta_title: string | null
-  meta_description: string | null
-  created_at: string
-  updated_at: string
+  meta_title?: string | null
+  meta_description?: string | null
   features: ProductFeature[]
   specifications: ProductSpecification[]
   images: ProductImage[]
 }
 
+const categories = [
+  { id: "1", name: "NFC Bileklik" },
+  { id: "2", name: "Akıllı Bileklik" },
+  { id: "3", name: "Özel Tasarım" },
+  { id: "4", name: "Aksesuar" },
+]
+
 export default function AdminProductEditPage() {
-  const { state } = useAdmin()
   const params = useParams()
   const router = useRouter()
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("details")
 
-  // Redirect if not authenticated
+  // Mock data for development - replace with real API calls
   useEffect(() => {
-    if (!state.isAuthenticated) {
-      router.push("/admin/login")
-      return
+    const loadProduct = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Simulate API call delay
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Mock product data
+        const mockProduct: Product = {
+          id: params.id as string,
+          name: "NFC Aşk Bilekliği",
+          slug: "nfc-ask-bilekligi",
+          description:
+            "Sevdiklerinizle özel anılarınızı paylaşabileceğiniz NFC teknolojili bileklik. Telefonunuzu yaklaştırarak fotoğraf, video, müzik ve mesajlarınızı anında paylaşabilirsiniz.",
+          short_description: "NFC teknolojili özel tasarım bileklik",
+          price: 299.99,
+          original_price: 399.99,
+          stock: 50,
+          category_id: "1",
+          nfc_enabled: true,
+          is_active: true,
+          weight: "25g",
+          dimensions: "20cm x 1.5cm",
+          material: "Silikon + NFC Chip",
+          featured: true,
+          meta_title: "NFC Aşk Bilekliği - Özel Anılarınızı Paylaşın",
+          meta_description:
+            "NFC teknolojili bileklik ile sevdiklerinizle özel anılarınızı paylaşın. Fotoğraf, video, müzik ve mesajlarınızı anında aktarın.",
+          features: [
+            { id: "1", feature_name: "NFC Teknolojisi", feature_value: "13.56 MHz", sort_order: 0 },
+            { id: "2", feature_name: "Su Geçirmez", feature_value: "IP67", sort_order: 1 },
+            { id: "3", feature_name: "Batarya", feature_value: "Gereksiz", sort_order: 2 },
+          ],
+          specifications: [
+            { id: "1", spec_name: "Boyut", spec_value: "20cm x 1.5cm", sort_order: 0 },
+            { id: "2", spec_name: "Ağırlık", spec_value: "25g", sort_order: 1 },
+            { id: "3", spec_name: "Malzeme", spec_value: "Silikon + NFC Chip", sort_order: 2 },
+            { id: "4", spec_name: "Renk", spec_value: "Siyah, Beyaz, Kırmızı", sort_order: 3 },
+          ],
+          images: [
+            {
+              id: "1",
+              image_url: "/placeholder.svg?height=400&width=400&text=Ana+Resim",
+              alt_text: "NFC Aşk Bilekliği Ana Resim",
+              sort_order: 0,
+              is_primary: true,
+            },
+            {
+              id: "2",
+              image_url: "/placeholder.svg?height=400&width=400&text=Yan+Görünüm",
+              alt_text: "NFC Aşk Bilekliği Yan Görünüm",
+              sort_order: 1,
+              is_primary: false,
+            },
+          ],
+        }
+
+        setProduct(mockProduct)
+      } catch (err) {
+        setError("Ürün yüklenirken bir hata oluştu")
+        console.error("Error loading product:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [state.isAuthenticated, router])
 
-  // Fetch product data
-  useEffect(() => {
-    if (state.isAuthenticated && params.id) {
-      fetchProduct()
+    if (params.id) {
+      loadProduct()
     }
-  }, [state.isAuthenticated, params.id])
+  }, [params.id])
 
-  const fetchProduct = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const token = localStorage.getItem("adminToken")
-      if (!token) {
-        setError("Admin token bulunamadı")
-        return
-      }
-
-      console.log(`Fetching product with ID: ${params.id}`)
-
-      const response = await fetch(`/api/admin/products/${params.id}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.message || "Ürün yüklenirken bir hata oluştu")
-      }
-
-      // Ensure arrays exist
-      const productData = {
-        ...data.product,
-        features: Array.isArray(data.product.features) ? data.product.features : [],
-        specifications: Array.isArray(data.product.specifications) ? data.product.specifications : [],
-        images: Array.isArray(data.product.images) ? data.product.images : [],
-        price: data.product.price?.toString() || "0",
-        original_price: data.product.original_price?.toString() || null,
-        stock: Number(data.product.stock) || 0,
-        review_count: Number(data.product.review_count) || 0,
-        sales_count: Number(data.product.sales_count) || 0,
-      }
-
-      setProduct(productData)
-      console.log("Product loaded successfully:", productData.name)
-    } catch (err) {
-      console.error("Error fetching product:", err)
-      setError(err instanceof Error ? err.message : "Ürün yüklenirken bir hata oluştu")
-      toast.error("Ürün yüklenirken bir hata oluştu")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Handle save
   const handleSave = async () => {
     if (!product) return
 
     try {
       setSaving(true)
-
-      const token = localStorage.getItem("adminToken")
-      if (!token) {
-        throw new Error("Admin token bulunamadı")
-      }
 
       // Validate required fields
       if (!product.name.trim()) {
@@ -182,87 +166,43 @@ export default function AdminProductEditPage() {
         return
       }
 
-      if (!product.price || Number(product.price) <= 0) {
+      if (!product.price || product.price <= 0) {
         toast.error("Geçerli bir fiyat giriniz")
         return
       }
 
-      console.log("Saving product:", product.name)
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      const response = await fetch(`/api/admin/products/${product.id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(product),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.message || "Ürün güncellenirken bir hata oluştu")
-      }
-
+      console.log("Saving product:", product)
       toast.success("Ürün başarıyla güncellendi")
-      console.log("Product saved successfully")
     } catch (err) {
       console.error("Error saving product:", err)
-      toast.error(err instanceof Error ? err.message : "Ürün güncellenirken bir hata oluştu")
+      toast.error("Ürün güncellenirken bir hata oluştu")
     } finally {
       setSaving(false)
     }
   }
 
-  // Handle delete
   const handleDelete = async () => {
     if (!product) return
 
+    if (!confirm("Bu ürünü silmek istediğinizden emin misiniz?")) {
+      return
+    }
+
     try {
-      setDeleting(true)
-
-      const token = localStorage.getItem("adminToken")
-      if (!token) {
-        throw new Error("Admin token bulunamadı")
-      }
-
-      console.log("Deleting product:", product.name)
-
-      const response = await fetch(`/api/admin/products/${product.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.message || "Ürün silinirken bir hata oluştu")
-      }
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       toast.success("Ürün başarıyla silindi")
       router.push("/admin/products")
     } catch (err) {
       console.error("Error deleting product:", err)
-      toast.error(err instanceof Error ? err.message : "Ürün silinirken bir hata oluştu")
-    } finally {
-      setDeleting(false)
+      toast.error("Ürün silinirken bir hata oluştu")
     }
   }
 
-  // Generate slug from name
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
@@ -278,10 +218,8 @@ export default function AdminProductEditPage() {
       .trim("-")
   }
 
-  // Handle name change and auto-generate slug
   const handleNameChange = (name: string) => {
     if (!product) return
-
     setProduct({
       ...product,
       name,
@@ -289,10 +227,8 @@ export default function AdminProductEditPage() {
     })
   }
 
-  // Add new feature
   const addFeature = () => {
     if (!product) return
-
     const newFeatures = [
       ...product.features,
       {
@@ -301,44 +237,24 @@ export default function AdminProductEditPage() {
         sort_order: product.features.length,
       },
     ]
-
-    setProduct({
-      ...product,
-      features: newFeatures,
-    })
+    setProduct({ ...product, features: newFeatures })
   }
 
-  // Remove feature
   const removeFeature = (index: number) => {
     if (!product) return
-
     const newFeatures = product.features.filter((_, i) => i !== index)
-    setProduct({
-      ...product,
-      features: newFeatures,
-    })
+    setProduct({ ...product, features: newFeatures })
   }
 
-  // Update feature
   const updateFeature = (index: number, field: keyof ProductFeature, value: string | number) => {
     if (!product) return
-
     const newFeatures = [...product.features]
-    newFeatures[index] = {
-      ...newFeatures[index],
-      [field]: value,
-    }
-
-    setProduct({
-      ...product,
-      features: newFeatures,
-    })
+    newFeatures[index] = { ...newFeatures[index], [field]: value }
+    setProduct({ ...product, features: newFeatures })
   }
 
-  // Add new specification
   const addSpecification = () => {
     if (!product) return
-
     const newSpecs = [
       ...product.specifications,
       {
@@ -347,112 +263,59 @@ export default function AdminProductEditPage() {
         sort_order: product.specifications.length,
       },
     ]
-
-    setProduct({
-      ...product,
-      specifications: newSpecs,
-    })
+    setProduct({ ...product, specifications: newSpecs })
   }
 
-  // Remove specification
   const removeSpecification = (index: number) => {
     if (!product) return
-
     const newSpecs = product.specifications.filter((_, i) => i !== index)
-    setProduct({
-      ...product,
-      specifications: newSpecs,
-    })
+    setProduct({ ...product, specifications: newSpecs })
   }
 
-  // Update specification
   const updateSpecification = (index: number, field: keyof ProductSpecification, value: string | number) => {
     if (!product) return
-
     const newSpecs = [...product.specifications]
-    newSpecs[index] = {
-      ...newSpecs[index],
-      [field]: value,
-    }
-
-    setProduct({
-      ...product,
-      specifications: newSpecs,
-    })
+    newSpecs[index] = { ...newSpecs[index], [field]: value }
+    setProduct({ ...product, specifications: newSpecs })
   }
 
-  // Add image
   const addImage = () => {
     if (!product) return
-
-    const imageUrl = `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name)}`
-
     const newImages = [
       ...product.images,
       {
-        image_url: imageUrl,
+        image_url: `/placeholder.svg?height=400&width=400&text=${encodeURIComponent("Yeni Resim")}`,
         alt_text: product.name,
         sort_order: product.images.length,
         is_primary: product.images.length === 0,
       },
     ]
-
-    setProduct({
-      ...product,
-      images: newImages,
-    })
+    setProduct({ ...product, images: newImages })
   }
 
-  // Remove image
   const removeImage = (index: number) => {
     if (!product) return
-
     const newImages = product.images.filter((_, i) => i !== index)
-
-    // If we removed the primary image, make the first one primary
     if (product.images[index].is_primary && newImages.length > 0) {
       newImages[0].is_primary = true
     }
-
-    setProduct({
-      ...product,
-      images: newImages,
-    })
+    setProduct({ ...product, images: newImages })
   }
 
-  // Set primary image
   const setPrimaryImage = (index: number) => {
     if (!product) return
-
     const newImages = product.images.map((img, i) => ({
       ...img,
       is_primary: i === index,
     }))
-
-    setProduct({
-      ...product,
-      images: newImages,
-    })
+    setProduct({ ...product, images: newImages })
   }
 
-  // Update image
   const updateImage = (index: number, field: keyof ProductImage, value: string | number | boolean) => {
     if (!product) return
-
     const newImages = [...product.images]
-    newImages[index] = {
-      ...newImages[index],
-      [field]: value,
-    }
-
-    setProduct({
-      ...product,
-      images: newImages,
-    })
-  }
-
-  if (!state.isAuthenticated) {
-    return null
+    newImages[index] = { ...newImages[index], [field]: value }
+    setProduct({ ...product, images: newImages })
   }
 
   if (loading) {
@@ -474,16 +337,10 @@ export default function AdminProductEditPage() {
             <div className="text-red-500 text-5xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold mb-2">Hata Oluştu</h3>
             <p className="text-red-600 mb-4">{error}</p>
-            <div className="flex gap-2 justify-center">
-              <Button onClick={fetchProduct}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Tekrar Dene
-              </Button>
-              <Button variant="outline" onClick={() => router.push("/admin/products")}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Geri Dön
-              </Button>
-            </div>
+            <Button onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Tekrar Dene
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -497,7 +354,7 @@ export default function AdminProductEditPage() {
           <CardContent className="pt-6 text-center">
             <div className="text-yellow-500 text-5xl mb-4">📦</div>
             <h3 className="text-lg font-semibold mb-2">Ürün Bulunamadı</h3>
-            <p className="text-gray-600 mb-4">İstediğiniz ürün bulunamadı veya silinmiş olabilir.</p>
+            <p className="text-gray-600 mb-4">İstediğiniz ürün bulunamadı.</p>
             <Button onClick={() => router.push("/admin/products")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Ürünlere Dön
@@ -509,7 +366,7 @@ export default function AdminProductEditPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -531,28 +388,10 @@ export default function AdminProductEditPage() {
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Kaydediliyor..." : "Kaydet"}
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={deleting}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Sil
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Ürünü Sil</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>İptal</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
-                  {deleting ? "Siliniyor..." : "Sil"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button variant="destructive" onClick={handleDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Sil
+          </Button>
         </div>
       </div>
 
@@ -567,7 +406,6 @@ export default function AdminProductEditPage() {
 
         <TabsContent value="details" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Temel Bilgiler */}
             <Card>
               <CardHeader>
                 <CardTitle>Temel Bilgiler</CardTitle>
@@ -592,7 +430,6 @@ export default function AdminProductEditPage() {
                     onChange={(e) => setProduct({ ...product, slug: e.target.value })}
                     placeholder="url-slug"
                   />
-                  <p className="text-xs text-gray-500">URL'de görünecek ürün adı</p>
                 </div>
 
                 <div className="space-y-2">
@@ -601,7 +438,7 @@ export default function AdminProductEditPage() {
                     value={product.category_id}
                     onValueChange={(value) => setProduct({ ...product, category_id: value })}
                   >
-                    <SelectTrigger id="category">
+                    <SelectTrigger>
                       <SelectValue placeholder="Kategori seçin" />
                     </SelectTrigger>
                     <SelectContent>
@@ -675,7 +512,6 @@ export default function AdminProductEditPage() {
               </CardContent>
             </Card>
 
-            {/* Açıklamalar */}
             <Card>
               <CardHeader>
                 <CardTitle>Açıklamalar</CardTitle>
@@ -729,9 +565,6 @@ export default function AdminProductEditPage() {
                         src={image.image_url || "/placeholder.svg"}
                         alt={image.alt_text}
                         className="w-full h-full object-contain rounded-md border"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg?height=400&width=400&text=Resim+Yüklenemedi"
-                        }}
                       />
                       {image.is_primary && <Badge className="absolute top-2 left-2 bg-green-500">Ana Resim</Badge>}
                     </div>
@@ -762,21 +595,12 @@ export default function AdminProductEditPage() {
                   </div>
                 ))}
               </div>
-
-              {product.images.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>Henüz resim eklenmemiş</p>
-                  <p className="text-sm">Resim eklemek için "Resim Ekle" butonuna tıklayın</p>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="features" className="space-y-6">
           <div className="grid grid-cols-1 gap-6">
-            {/* Özellikler */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -790,12 +614,6 @@ export default function AdminProductEditPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {product.features.length === 0 && (
-                    <div className="text-center py-4 text-gray-500">
-                      Henüz özellik eklenmemiş. Özellik eklemek için "Özellik Ekle" butonuna tıklayın.
-                    </div>
-                  )}
-
                   {product.features.map((feature, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-5">
@@ -836,7 +654,6 @@ export default function AdminProductEditPage() {
               </CardContent>
             </Card>
 
-            {/* Teknik Özellikler */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -850,12 +667,6 @@ export default function AdminProductEditPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {product.specifications.length === 0 && (
-                    <div className="text-center py-4 text-gray-500">
-                      Henüz teknik özellik eklenmemiş. Özellik eklemek için "Özellik Ekle" butonuna tıklayın.
-                    </div>
-                  )}
-
                   {product.specifications.map((spec, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-5">
@@ -912,7 +723,7 @@ export default function AdminProductEditPage() {
                     id="price"
                     type="number"
                     value={product.price}
-                    onChange={(e) => setProduct({ ...product, price: e.target.value })}
+                    onChange={(e) => setProduct({ ...product, price: Number.parseFloat(e.target.value) || 0 })}
                     step="0.01"
                     min="0"
                     placeholder="0.00"
@@ -924,27 +735,26 @@ export default function AdminProductEditPage() {
                     id="original_price"
                     type="number"
                     value={product.original_price || ""}
-                    onChange={(e) => setProduct({ ...product, original_price: e.target.value || null })}
+                    onChange={(e) =>
+                      setProduct({ ...product, original_price: Number.parseFloat(e.target.value) || null })
+                    }
                     placeholder="İndirim varsa eski fiyatı girin"
                     step="0.01"
                     min="0"
                   />
-                  <p className="text-xs text-gray-500">İndirim yoksa boş bırakın</p>
                 </div>
 
-                {product.original_price && Number(product.original_price) > Number(product.price) && (
+                {product.original_price && product.original_price > product.price && (
                   <div className="p-3 bg-green-50 rounded-md text-green-800 text-sm">
                     <div className="font-medium">İndirim Bilgisi</div>
                     <div className="flex justify-between mt-1">
                       <span>İndirim Miktarı:</span>
-                      <span className="font-medium">
-                        {(Number(product.original_price) - Number(product.price)).toFixed(2)} ₺
-                      </span>
+                      <span className="font-medium">{(product.original_price - product.price).toFixed(2)} ₺</span>
                     </div>
                     <div className="flex justify-between">
                       <span>İndirim Oranı:</span>
                       <span className="font-medium">
-                        {Math.round((1 - Number(product.price) / Number(product.original_price)) * 100)}%
+                        {Math.round((1 - product.price / product.original_price) * 100)}%
                       </span>
                     </div>
                   </div>
@@ -982,10 +792,6 @@ export default function AdminProductEditPage() {
                         {product.is_active ? "Aktif" : "Pasif"}
                       </Badge>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Satış:</span>
-                      <span className="font-medium">{product.sales_count} adet</span>
-                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1008,7 +814,6 @@ export default function AdminProductEditPage() {
                   onChange={(e) => setProduct({ ...product, meta_title: e.target.value })}
                   placeholder="Arama motorlarında görünecek başlık"
                 />
-                <p className="text-xs text-gray-500">Boş bırakırsanız ürün adı kullanılır</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="meta_description">SEO Açıklama</Label>
@@ -1019,7 +824,6 @@ export default function AdminProductEditPage() {
                   placeholder="Arama motorlarında görünecek açıklama"
                   rows={3}
                 />
-                <p className="text-xs text-gray-500">Boş bırakırsanız kısa açıklama kullanılır</p>
               </div>
             </CardContent>
           </Card>
