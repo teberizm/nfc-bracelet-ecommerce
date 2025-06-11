@@ -1,16 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@neondatabase/serverless"
-import { getAdminFromRequest } from "@/lib/auth"
+import { sql } from "@/lib/database"
+import { verifyAdminToken } from "@/lib/auth"
 
 // GET - Fetch a single product with all details
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`Fetching product with ID: ${params.id}`)
 
-    // Verify admin authentication
-    const admin = await getAdminFromRequest(request)
-    if (!admin) {
-      return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
+    // Admin token kontrolü - Users API'si ile aynı pattern
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const adminPayload = await verifyAdminToken(token)
+
+    if (!adminPayload) {
+      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
     // Fetch product details
@@ -18,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       SELECT * FROM products WHERE id = ${params.id}
     `
 
-    if (productResult.length === 0) {
+    if (!productResult || productResult.length === 0) {
       return NextResponse.json({ success: false, message: "Ürün bulunamadı" }, { status: 404 })
     }
 
@@ -48,22 +55,21 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Combine all data
     const productWithDetails = {
       ...product,
-      features: featuresResult,
-      specifications: specificationsResult,
-      images: imagesResult,
+      features: featuresResult || [],
+      specifications: specificationsResult || [],
+      images: imagesResult || [],
     }
 
-    // Set cache control headers
-    const headers = new Headers()
-    headers.set("Cache-Control", "no-store, max-age=0")
+    console.log("Product fetched successfully:", productWithDetails.name)
 
-    return NextResponse.json(
-      { success: true, product: productWithDetails },
-      {
-        status: 200,
-        headers,
-      },
-    )
+    // Set cache control headers
+    const response = NextResponse.json({ success: true, product: productWithDetails }, { status: 200 })
+
+    response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
+    response.headers.set("Pragma", "no-cache")
+    response.headers.set("Expires", "0")
+
+    return response
   } catch (error) {
     console.error("Error fetching product:", error)
     return NextResponse.json(
@@ -78,10 +84,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log(`Updating product with ID: ${params.id}`)
 
-    // Verify admin authentication
-    const admin = await getAdminFromRequest(request)
-    if (!admin) {
-      return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
+    // Admin token kontrolü
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const adminPayload = await verifyAdminToken(token)
+
+    if (!adminPayload) {
+      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
     // Parse request body
@@ -98,18 +111,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       SET 
         name = ${body.name},
         slug = ${body.slug},
-        description = ${body.description},
-        short_description = ${body.short_description},
+        description = ${body.description || ""},
+        short_description = ${body.short_description || ""},
         price = ${body.price},
         original_price = ${body.original_price},
-        stock = ${body.stock},
+        stock = ${body.stock || 0},
         category_id = ${body.category_id},
-        nfc_enabled = ${body.nfc_enabled},
-        is_active = ${body.is_active},
-        weight = ${body.weight},
-        dimensions = ${body.dimensions},
-        material = ${body.material},
-        featured = ${body.featured},
+        nfc_enabled = ${body.nfc_enabled || false},
+        is_active = ${body.is_active || true},
+        weight = ${body.weight || ""},
+        dimensions = ${body.dimensions || ""},
+        material = ${body.material || ""},
+        featured = ${body.featured || false},
         meta_title = ${body.meta_title},
         meta_description = ${body.meta_description},
         updated_at = NOW()
@@ -123,13 +136,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
       // Insert new features
       for (const feature of body.features) {
-        await sql`
-          INSERT INTO product_features (
-            product_id, feature_name, feature_value, sort_order
-          ) VALUES (
-            ${params.id}, ${feature.feature_name}, ${feature.feature_value}, ${feature.sort_order}
-          )
-        `
+        if (feature.feature_name && feature.feature_value) {
+          await sql`
+            INSERT INTO product_features (
+              product_id, feature_name, feature_value, sort_order
+            ) VALUES (
+              ${params.id}, ${feature.feature_name}, ${feature.feature_value}, ${feature.sort_order || 0}
+            )
+          `
+        }
       }
     }
 
@@ -140,13 +155,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
       // Insert new specifications
       for (const spec of body.specifications) {
-        await sql`
-          INSERT INTO product_specifications (
-            product_id, spec_name, spec_value, sort_order
-          ) VALUES (
-            ${params.id}, ${spec.spec_name}, ${spec.spec_value}, ${spec.sort_order}
-          )
-        `
+        if (spec.spec_name && spec.spec_value) {
+          await sql`
+            INSERT INTO product_specifications (
+              product_id, spec_name, spec_value, sort_order
+            ) VALUES (
+              ${params.id}, ${spec.spec_name}, ${spec.spec_value}, ${spec.sort_order || 0}
+            )
+          `
+        }
       }
     }
 
@@ -157,15 +174,19 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
       // Insert new images
       for (const image of body.images) {
-        await sql`
-          INSERT INTO product_images (
-            product_id, image_url, alt_text, sort_order, is_primary
-          ) VALUES (
-            ${params.id}, ${image.image_url}, ${image.alt_text}, ${image.sort_order}, ${image.is_primary}
-          )
-        `
+        if (image.image_url) {
+          await sql`
+            INSERT INTO product_images (
+              product_id, image_url, alt_text, sort_order, is_primary
+            ) VALUES (
+              ${params.id}, ${image.image_url}, ${image.alt_text || ""}, ${image.sort_order || 0}, ${image.is_primary || false}
+            )
+          `
+        }
       }
     }
+
+    console.log("Product updated successfully")
 
     return NextResponse.json({ success: true, message: "Ürün başarıyla güncellendi" }, { status: 200 })
   } catch (error) {
@@ -182,10 +203,17 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   try {
     console.log(`Deleting product with ID: ${params.id}`)
 
-    // Verify admin authentication
-    const admin = await getAdminFromRequest(request)
-    if (!admin) {
-      return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 })
+    // Admin token kontrolü
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const adminPayload = await verifyAdminToken(token)
+
+    if (!adminPayload) {
+      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
     // Check if product exists
@@ -193,7 +221,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       SELECT id FROM products WHERE id = ${params.id}
     `
 
-    if (productResult.length === 0) {
+    if (!productResult || productResult.length === 0) {
       return NextResponse.json({ success: false, message: "Ürün bulunamadı" }, { status: 404 })
     }
 
@@ -204,6 +232,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Delete the product
     await sql`DELETE FROM products WHERE id = ${params.id}`
+
+    console.log("Product deleted successfully")
 
     return NextResponse.json({ success: true, message: "Ürün başarıyla silindi" }, { status: 200 })
   } catch (error) {

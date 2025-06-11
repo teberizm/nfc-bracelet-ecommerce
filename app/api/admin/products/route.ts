@@ -25,19 +25,21 @@ export async function GET(request: Request) {
 
     console.log("Token doğrulandı, ürünler çekiliyor...")
 
-    // En basit sorgu ile başlayalım
+    // Users API'si ile aynı pattern kullanarak basit sorgu
     const result = await sql`
       SELECT 
-        id,
-        name,
-        slug,
-        price,
-        stock,
-        is_active,
-        nfc_enabled,
-        created_at
-      FROM products 
-      ORDER BY created_at DESC 
+        p.id,
+        p.name,
+        p.slug,
+        p.price,
+        p.stock,
+        p.nfc_enabled,
+        p.is_active,
+        p.created_at,
+        COALESCE(c.name, 'Kategori Yok') as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.created_at DESC
       LIMIT 50
     `
 
@@ -52,44 +54,43 @@ export async function GET(request: Request) {
       })
     }
 
-    // Basit veri dönüşümü
-    const products = result.map((row) => {
-      try {
-        return {
-          id: row.id || "",
-          name: row.name || "İsimsiz Ürün",
-          slug: row.slug || "",
-          price: row.price ? Number.parseFloat(row.price.toString()) : 0,
-          stock: row.stock ? Number.parseInt(row.stock.toString()) : 0,
-          category_name: "Genel", // Şimdilik sabit
-          primary_image: "/placeholder.svg?height=120&width=120&text=Ürün",
-          is_active: Boolean(row.is_active),
-          nfc_enabled: Boolean(row.nfc_enabled),
-          created_at: row.created_at || new Date().toISOString(),
+    // Users API'si ile aynı pattern kullanarak veri işleme
+    const products = result
+      .map((row) => {
+        try {
+          return {
+            id: row.id || "",
+            name: row.name || "İsimsiz Ürün",
+            slug: row.slug || "",
+            price: row.price ? Number.parseFloat(row.price.toString()) : 0,
+            stock: row.stock ? Number.parseInt(row.stock.toString()) : 0,
+            category_name: row.category_name || "Kategori Yok",
+            primary_image: "/placeholder.svg?height=120&width=120&text=" + encodeURIComponent(row.name || "Ürün"),
+            is_active: Boolean(row.is_active),
+            nfc_enabled: Boolean(row.nfc_enabled),
+            created_at: row.created_at || new Date().toISOString(),
+          }
+        } catch (error) {
+          console.error("Ürün işleme hatası:", error)
+          return null
         }
-      } catch (error) {
-        console.error("Ürün işleme hatası:", error)
-        return {
-          id: "error",
-          name: "Hatalı Ürün",
-          slug: "error",
-          price: 0,
-          stock: 0,
-          category_name: "Hata",
-          primary_image: "/placeholder.svg?height=120&width=120&text=Hata",
-          is_active: false,
-          nfc_enabled: false,
-          created_at: new Date().toISOString(),
-        }
-      }
-    })
+      })
+      .filter(Boolean) // null değerleri filtrele
 
     console.log("Ürünler işlendi:", products.length)
 
-    return NextResponse.json({
+    // Users API'si ile aynı response format
+    const response = NextResponse.json({
       success: true,
       products: products,
     })
+
+    // Cache kontrolü
+    response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
+    response.headers.set("Pragma", "no-cache")
+    response.headers.set("Expires", "0")
+
+    return response
   } catch (error) {
     console.error("API Hatası - Detay:", {
       message: error.message,
