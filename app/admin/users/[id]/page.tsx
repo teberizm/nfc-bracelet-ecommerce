@@ -52,7 +52,15 @@ export default function UserDetailPage() {
       setIsLoading(true)
       console.log("API çağrısı yapılıyor:", `/api/admin/users/${params.id}`)
 
-      const response = await fetch(`/api/admin/users/${params.id}`)
+      // Cache-busting için timestamp ekle
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/admin/users/${params.id}?t=${timestamp}`, {
+        cache: "no-store",
+        headers: {
+          Pragma: "no-cache",
+          "Cache-Control": "no-cache",
+        },
+      })
       const data = await response.json()
 
       console.log("API yanıtı:", data)

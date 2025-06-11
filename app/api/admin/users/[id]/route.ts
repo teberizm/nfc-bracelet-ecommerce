@@ -89,11 +89,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log("Normalize edilmiş kullanıcı:", userData)
     console.log("Normalize edilmiş siparişler:", orders)
 
-    return NextResponse.json({
-      success: true,
-      user: userData,
-      orders: orders,
-    })
+    // Cache-busting header'ları ekle
+    return NextResponse.json(
+      {
+        success: true,
+        user: userData,
+        orders: orders,
+        timestamp: Date.now(), // Her seferinde farklı bir response için
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+          "Surrogate-Control": "no-store",
+        },
+      },
+    )
   } catch (error: any) {
     console.error("Kullanıcı detayı hatası:", error)
     return NextResponse.json(
