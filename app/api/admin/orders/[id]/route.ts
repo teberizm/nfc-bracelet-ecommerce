@@ -47,7 +47,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       }
     }
 
-    // Sipariş ürünlerini al (basit sorgu)
+    // Sipariş ürünlerini al
     const orderItems = await sql`
       SELECT * FROM order_items WHERE order_id = ${params.id}
     `
@@ -107,10 +107,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         WHERE id = ${params.id}
       `
 
-      // Durum geçmişine ekle
+      // Durum geçmişine ekle - created_by olmadan
       await sql`
-        INSERT INTO order_status_history (order_id, status, created_by, created_at)
-        VALUES (${params.id}, ${status}, 1, CURRENT_TIMESTAMP)
+        INSERT INTO order_status_history (order_id, status, created_at)
+        VALUES (${params.id}, ${status}, CURRENT_TIMESTAMP)
       `
     }
 
