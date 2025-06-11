@@ -17,11 +17,13 @@ import {
   CheckCircle,
   Package,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ProductGallery } from "@/components/product-gallery"
 import { ProductCard } from "@/components/product-card"
 import { useCart } from "@/contexts/cart-context"
@@ -56,7 +58,7 @@ export default function ProductPage({ params }: ProductPageProps) {
       console.log(`Ürün detay sayfası: Ürün çekiliyor (ID: ${params.id})`)
 
       // Özel tasarım ürünü kontrolü
-      if (params.id === "custom-design") {
+      if (params.id === "custom-design" || params.id === "kendin-tasarla") {
         const customProduct: Product = {
           id: "custom-design",
           name: "Kendin Tasarla",
@@ -102,26 +104,36 @@ export default function ProductPage({ params }: ProductPageProps) {
           ],
         }
         setProduct(customProduct)
-        // İlgili ürünleri çek
-        await fetchRelatedProducts("ozel-tasarim")
+        setLoading(false)
         return
       }
 
       // Normal ürün için API çağrısı
-      const response = await fetch(`/api/products/${params.id}`)
+      const response = await fetch(`/api/products/${params.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log(`API Response Status: ${response.status}`)
 
       if (!response.ok) {
         if (response.status === 404) {
+          console.log("Ürün bulunamadı, 404 sayfasına yönlendiriliyor")
           notFound()
           return
         }
-        throw new Error(`API hatası: ${response.status} ${response.statusText}`)
+
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `API hatası: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
       console.log("Ürün detay sayfası: API'den gelen ürün:", data)
 
-      if (!data) {
+      if (!data || !data.id) {
+        console.log("Geçersiz ürün verisi")
         notFound()
         return
       }
@@ -129,11 +141,11 @@ export default function ProductPage({ params }: ProductPageProps) {
       // Ürün verisini normalize et
       const normalizedProduct: Product = {
         id: data.id,
-        name: data.name || "",
+        name: data.name || "İsimsiz Ürün",
         price: Number(data.price) || 0,
         originalPrice: data.original_price ? Number(data.original_price) : undefined,
         image: data.primary_image || "/placeholder.svg?height=600&width=600",
-        description: data.description || "",
+        description: data.description || "Açıklama bulunmuyor.",
         nfcEnabled: Boolean(data.nfc_enabled),
         stock: Number(data.stock) || 0,
         category: data.category_name || "Genel",
@@ -157,7 +169,7 @@ export default function ProductPage({ params }: ProductPageProps) {
       }
     } catch (error) {
       console.error("Ürün detay sayfası: Ürün yüklenirken hata:", error)
-      setError("Ürün bilgileri yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.")
+      setError(error instanceof Error ? error.message : "Ürün bilgileri yüklenirken bir hata oluştu.")
     } finally {
       setLoading(false)
     }
@@ -190,10 +202,12 @@ export default function ProductPage({ params }: ProductPageProps) {
       if (!field) return null
       if (Array.isArray(field)) return field.filter((item) => item && typeof item === "string")
       if (typeof field === "string") {
+        // PostgreSQL array formatı: {item1,item2,item3}
         if (field.startsWith("{") && field.endsWith("}")) {
           const items = field.slice(1, -1).split(",")
           return items.map((item) => item.trim().replace(/^"(.*)"$/, "$1")).filter(Boolean)
         }
+        // JSON array formatı
         try {
           const parsed = JSON.parse(field)
           return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item === "string") : null
@@ -257,6 +271,7 @@ export default function ProductPage({ params }: ProductPageProps) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
           <div className="grid lg:grid-cols-2 gap-12">
             <div className="bg-gray-200 aspect-square rounded-lg"></div>
             <div className="space-y-4">
@@ -264,6 +279,7 @@ export default function ProductPage({ params }: ProductPageProps) {
               <div className="bg-gray-200 h-4 rounded w-3/4"></div>
               <div className="bg-gray-200 h-6 rounded w-1/2"></div>
               <div className="bg-gray-200 h-20 rounded"></div>
+              <div className="bg-gray-200 h-12 rounded"></div>
             </div>
           </div>
         </div>
@@ -275,21 +291,45 @@ export default function ProductPage({ params }: ProductPageProps) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Bir Hata Oluştu</h2>
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={fetchProduct}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Tekrar Dene
-          </Button>
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-4">Bir Hata Oluştu</h2>
+          <Alert className="max-w-md mx-auto mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div className="space-x-4">
+            <Button onClick={fetchProduct}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Tekrar Dene
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/products">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Ürünlere Dön
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     )
   }
 
   if (!product) {
-    notFound()
-    return null
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Ürün Bulunamadı</h2>
+          <p className="text-gray-600 mb-6">Aradığınız ürün mevcut değil veya kaldırılmış olabilir.</p>
+          <Button asChild>
+            <Link href="/products">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Ürünlere Dön
+            </Link>
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
