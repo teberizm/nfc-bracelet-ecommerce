@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { useAdmin } from "@/contexts/admin-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, MessageCircle, Package, Truck, CheckCircle, XCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 interface OrderDetail {
   id: string
@@ -28,6 +28,8 @@ interface OrderDetail {
   shipping_address: any
   billing_address: any
   tracking_number?: string
+  payment_method: string
+  notes?: string
   items: Array<{
     id: string
     product_name: string
@@ -42,7 +44,7 @@ interface OrderDetail {
     status: string
     note?: string
     created_at: string
-    admin_id: string
+    admin_name?: string
   }>
 }
 
@@ -73,7 +75,7 @@ const statusIcons = {
 export default function AdminOrderDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { state } = useAdmin()
+  const { toast } = useToast()
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -82,31 +84,39 @@ export default function AdminOrderDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState("")
 
   useEffect(() => {
-    if (state.isAuthenticated && params.id) {
+    if (params.id) {
       fetchOrderDetail()
     }
-  }, [state.isAuthenticated, params.id])
+  }, [params.id])
 
   const fetchOrderDetail = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("adminToken")
-      if (!token) return
+      console.log("Fetching order detail for:", params.id)
 
-      const response = await fetch(`/api/admin/orders/${params.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+      const response = await fetch(`/api/admin/orders/${params.id}`)
       const data = await response.json()
+
+      console.log("Order detail response:", data)
+
       if (data.success) {
         setOrder(data.order)
         setNewStatus(data.order.status)
         setTrackingNumber(data.order.tracking_number || "")
+      } else {
+        toast({
+          title: "Hata",
+          description: data.message || "Sipariş yüklenirken hata oluştu",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error fetching order detail:", error)
+      toast({
+        title: "Hata",
+        description: "Sipariş yüklenirken hata oluştu",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -117,14 +127,12 @@ export default function AdminOrderDetailPage() {
 
     try {
       setUpdating(true)
-      const token = localStorage.getItem("adminToken")
-      if (!token) return
+      console.log("Updating order status:", { newStatus, note, trackingNumber })
 
       const response = await fetch(`/api/admin/orders/${order.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: newStatus,
@@ -134,20 +142,38 @@ export default function AdminOrderDetailPage() {
       })
 
       const data = await response.json()
+      console.log("Update response:", data)
+
       if (data.success) {
+        toast({
+          title: "Başarılı",
+          description: "Sipariş durumu güncellendi",
+        })
         setNote("")
         fetchOrderDetail()
+      } else {
+        toast({
+          title: "Hata",
+          description: data.message || "Güncelleme sırasında hata oluştu",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error updating order:", error)
+      toast({
+        title: "Hata",
+        description: "Güncelleme sırasında hata oluştu",
+        variant: "destructive",
+      })
     } finally {
       setUpdating(false)
     }
   }
 
   const getWhatsAppUrl = (phone: string, orderNumber: string) => {
+    const cleanPhone = phone.replace(/\D/g, "")
     const message = `Merhaba! ${orderNumber} numaralı siparişiniz hakkında bilgi vermek istiyorum.`
-    return `https://wa.me/90${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
   }
 
   if (loading) {
@@ -247,7 +273,10 @@ export default function AdminOrderDetailPage() {
                 />
               </div>
 
-              <Button onClick={handleStatusUpdate} disabled={updating || newStatus === order.status}>
+              <Button
+                onClick={handleStatusUpdate}
+                disabled={updating || (newStatus === order.status && !trackingNumber)}
+              >
                 {updating ? "Güncelleniyor..." : "Durumu Güncelle"}
               </Button>
             </CardContent>
@@ -260,25 +289,29 @@ export default function AdminOrderDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                    <img
-                      src={item.product_image || "/placeholder.svg"}
-                      alt={item.product_name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-medium">{item.product_name}</h4>
-                      <p className="text-sm text-gray-600">
-                        {item.quantity} x {item.unit_price.toLocaleString("tr-TR")} ₺
-                      </p>
-                      {item.nfc_enabled && <Badge variant="secondary">NFC Etkin</Badge>}
+                {order.items && order.items.length > 0 ? (
+                  order.items.map((item, index) => (
+                    <div key={item.id || index} className="flex items-center gap-4 p-4 border rounded-lg">
+                      <img
+                        src={item.product_image || "/placeholder.svg"}
+                        alt={item.product_name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium">{item.product_name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {item.quantity} x {item.unit_price.toLocaleString("tr-TR")} ₺
+                        </p>
+                        {item.nfc_enabled && <Badge variant="secondary">NFC Etkin</Badge>}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{item.total_price.toLocaleString("tr-TR")} ₺</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{item.total_price.toLocaleString("tr-TR")} ₺</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-gray-500">Sipariş öğeleri bulunamadı</p>
+                )}
               </div>
 
               <Separator className="my-4" />
@@ -304,8 +337,8 @@ export default function AdminOrderDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {order.statusHistory.map((history) => (
-                    <div key={history.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  {order.statusHistory.map((history, index) => (
+                    <div key={history.id || index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                       <Badge className={statusColors[history.status as keyof typeof statusColors]}>
                         {statusLabels[history.status as keyof typeof statusLabels]}
                       </Badge>
@@ -319,6 +352,7 @@ export default function AdminOrderDetailPage() {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
+                          {history.admin_name && ` - ${history.admin_name}`}
                         </p>
                       </div>
                     </div>
@@ -345,53 +379,72 @@ export default function AdminOrderDetailPage() {
                 {order.user_phone && <p className="text-sm text-gray-600">{order.user_phone}</p>}
               </div>
 
-              <Button size="sm" className="w-full" asChild>
-                <a
-                  href={getWhatsAppUrl(order.user_phone || "5551234567", order.order_number)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  WhatsApp ile İletişim
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Teslimat Adresi */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Teslimat Adresi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {order.shipping_address && (
-                <div className="text-sm space-y-1">
-                  <p>{order.shipping_address.street}</p>
-                  <p>
-                    {order.shipping_address.city}, {order.shipping_address.state}
-                  </p>
-                  <p>{order.shipping_address.zipCode}</p>
-                  <p>{order.shipping_address.country}</p>
-                </div>
+              {order.user_phone && (
+                <Button size="sm" className="w-full" asChild>
+                  <a
+                    href={getWhatsAppUrl(order.user_phone, order.order_number)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    WhatsApp ile İletişim
+                  </a>
+                </Button>
               )}
             </CardContent>
           </Card>
 
-          {/* Fatura Adresi */}
-          {order.billing_address && (
+          {/* Ödeme Bilgileri */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Ödeme Bilgileri</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Ödeme Yöntemi:</span>
+                  <span className="capitalize">{order.payment_method}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Toplam Tutar:</span>
+                  <span className="font-medium">{order.total_amount.toLocaleString("tr-TR")} ₺</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Teslimat Adresi */}
+          {order.shipping_address && (
             <Card>
               <CardHeader>
-                <CardTitle>Fatura Adresi</CardTitle>
+                <CardTitle>Teslimat Adresi</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm space-y-1">
-                  <p>{order.billing_address.street}</p>
-                  <p>
-                    {order.billing_address.city}, {order.billing_address.state}
-                  </p>
-                  <p>{order.billing_address.zipCode}</p>
-                  <p>{order.billing_address.country}</p>
-                </div>
+                {typeof order.shipping_address === "object" ? (
+                  <div className="text-sm space-y-1">
+                    <p className="font-medium">{order.shipping_address.name}</p>
+                    <p>{order.shipping_address.address}</p>
+                    <p>
+                      {order.shipping_address.district}, {order.shipping_address.city}
+                    </p>
+                    <p>{order.shipping_address.postal_code}</p>
+                    {order.shipping_address.phone && <p>{order.shipping_address.phone}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Adres bilgisi mevcut değil</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Notlar */}
+          {order.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Notlar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{order.notes}</p>
               </CardContent>
             </Card>
           )}
