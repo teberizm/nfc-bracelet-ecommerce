@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { verifyAdminToken } from "@/lib/auth"
 import { getAllOrdersForAdmin } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
@@ -7,19 +6,6 @@ export const dynamic = "force-dynamic"
 export async function GET(request: Request) {
   try {
     console.log("Admin orders API çağrısı başladı")
-
-    // Admin token'ını doğrula
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
 
     // URL parametrelerini al
     const { searchParams } = new URL(request.url)

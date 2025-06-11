@@ -64,8 +64,6 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("adminToken")
-      if (!token) return
 
       const params = new URLSearchParams()
       if (filters.status) params.append("status", filters.status)
@@ -73,11 +71,7 @@ export default function AdminOrdersPage() {
       params.append("sortBy", filters.sortBy)
       params.append("sortOrder", filters.sortOrder)
 
-      const response = await fetch(`/api/admin/orders?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await fetch(`/api/admin/orders?${params}`)
 
       const data = await response.json()
       if (data.success) {
@@ -94,14 +88,10 @@ export default function AdminOrdersPage() {
     if (selectedOrders.length === 0) return
 
     try {
-      const token = localStorage.getItem("adminToken")
-      if (!token) return
-
       const response = await fetch("/api/admin/orders/bulk", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           orderIds: selectedOrders,
@@ -167,7 +157,7 @@ export default function AdminOrdersPage() {
                 <SelectValue placeholder="Durum seçin" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tüm Durumlar</SelectItem>
+                <SelectItem value="all">Tüm Durumlar</SelectItem>
                 <SelectItem value="pending">Beklemede</SelectItem>
                 <SelectItem value="processing">İşleniyor</SelectItem>
                 <SelectItem value="shipped">Kargoda</SelectItem>

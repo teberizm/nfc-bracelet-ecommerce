@@ -1,121 +1,67 @@
-import { NextResponse } from "next/server"
-import { sql } from "@/lib/database"
-import { verifyAdminToken } from "@/lib/auth"
+import prisma from "@/lib/prisma"
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // Token'ı al ve doğrula
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const orderId = params.id
+
+    if (!orderId) {
+      return new NextResponse("Order ID is required", { status: 400 })
     }
 
-    const token = authHeader.split(" ")[1]
-    const decoded = await verifyAdminToken(token)
-    if (!decoded || !decoded.adminId) {
-      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
-    }
-
-    // Sipariş detaylarını al
-    const [order] = await sql`
-      SELECT o.*, 
-             u.first_name, u.last_name, u.email as user_email, u.phone as user_phone,
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'product_id', oi.product_id,
-                 'product_name', oi.product_name,
-                 'product_image', oi.product_image,
-                 'quantity', oi.quantity,
-                 'unit_price', oi.unit_price,
-                 'total_price', oi.total_price,
-                 'nfc_enabled', oi.nfc_enabled
-               ) ORDER BY oi.created_at
-             ) as items
-      FROM orders o
-      JOIN users u ON o.user_id = u.id
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      WHERE o.id = ${params.id}
-      GROUP BY o.id, u.id
-    `
-
-    if (!order) {
-      return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 })
-    }
-
-    // Sipariş durum geçmişini al
-    const statusHistory = await sql`
-      SELECT * FROM order_status_history
-      WHERE order_id = ${params.id}
-      ORDER BY created_at DESC
-    `
-
-    return NextResponse.json({
-      success: true,
-      order: {
-        ...order,
-        statusHistory,
+    const order = await prisma.order.findUnique({
+      where: {
+        id: orderId,
+      },
+      include: {
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
+        shippingAddress: true,
+        user: true,
       },
     })
+
+    if (!order) {
+      return new NextResponse("Order not found", { status: 404 })
+    }
+
+    return NextResponse.json(order)
   } catch (error) {
-    console.error(`Error in /api/admin/orders/${params.id}:`, error)
-    return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
+    console.error("[ORDER_GET]", error)
+    return new NextResponse("Internal error", { status: 500 })
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // Token'ı al ve doğrula
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const orderId = params.id
+    const body = await req.json()
+
+    const { status } = body
+
+    if (!orderId) {
+      return new NextResponse("Order ID is required", { status: 400 })
     }
 
-    const token = authHeader.split(" ")[1]
-    const decoded = await verifyAdminToken(token)
-    if (!decoded || !decoded.adminId) {
-      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
+    if (!status) {
+      return new NextResponse("Status is required", { status: 400 })
     }
 
-    const body = await request.json()
-    const { status, note, trackingNumber } = body
-
-    // Sipariş var mı kontrol et
-    const [orderExists] = await sql`SELECT id FROM orders WHERE id = ${params.id}`
-    if (!orderExists) {
-      return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 })
-    }
-
-    // Siparişi güncelle
-    if (status) {
-      await sql`
-        UPDATE orders
-        SET status = ${status}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${params.id}
-      `
-
-      // Durum geçmişine ekle
-      await sql`
-        INSERT INTO order_status_history (order_id, status, note, admin_id)
-        VALUES (${params.id}, ${status}, ${note || null}, ${decoded.adminId})
-      `
-    }
-
-    // Kargo takip numarasını güncelle
-    if (trackingNumber !== undefined) {
-      await sql`
-        UPDATE orders
-        SET tracking_number = ${trackingNumber}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${params.id}
-      `
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Order updated successfully",
+    const order = await prisma.order.update({
+      where: {
+        id: orderId,
+      },
+      data: {
+        status,
+      },
     })
+
+    return NextResponse.json(order)
   } catch (error) {
-    console.error(`Error in PUT /api/admin/orders/${params.id}:`, error)
-    return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
+    console.error("[ORDER_PATCH]", error)
+    return new NextResponse("Internal error", { status: 500 })
   }
 }
