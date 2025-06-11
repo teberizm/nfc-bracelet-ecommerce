@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Search, Edit, Trash2, Eye, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,171 +23,184 @@ import Image from "next/image"
 interface Theme {
   id: string
   name: string
+  slug: string
   description: string
-  category: "romantic" | "adventure" | "business" | "creative" | "minimal"
-  preview: string
-  backgroundColor: string
-  textColor: string
-  accentColor: string
-  fontFamily: string
-  isActive: boolean
-  usageCount: number
-  createdAt: string
-  updatedAt: string
+  preview_image: string | null
+  layout_config: {
+    type: string
+    colors: string[]
+    layout: string
+  }
+  is_premium: boolean
+  is_active: boolean
+  download_count: number
+  created_at: string
+  updated_at: string
 }
 
-// Mock data
-const mockThemes: Theme[] = [
-  {
-    id: "theme-1",
-    name: "Aşk",
-    description: "Romantik çiftler için özel tasarlanmış tema",
-    category: "romantic",
-    preview: "/placeholder.svg?height=300&width=400",
-    backgroundColor: "#FFE4E6",
-    textColor: "#BE185D",
-    accentColor: "#F43F5E",
-    fontFamily: "Inter",
-    isActive: true,
-    usageCount: 45,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "theme-2",
-    name: "Adventure",
-    description: "Macera severler için dinamik tema",
-    category: "adventure",
-    preview: "/placeholder.svg?height=300&width=400",
-    backgroundColor: "#F0FDF4",
-    textColor: "#166534",
-    accentColor: "#22C55E",
-    fontFamily: "Inter",
-    isActive: true,
-    usageCount: 32,
-    createdAt: "2024-01-02T00:00:00Z",
-    updatedAt: "2024-01-16T11:20:00Z",
-  },
-  {
-    id: "theme-3",
-    name: "Business Pro",
-    description: "Profesyonel iş dünyası için şık tema",
-    category: "business",
-    preview: "/placeholder.svg?height=300&width=400",
-    backgroundColor: "#F8FAFC",
-    textColor: "#1E293B",
-    accentColor: "#3B82F6",
-    fontFamily: "Inter",
-    isActive: true,
-    usageCount: 28,
-    createdAt: "2024-01-03T00:00:00Z",
-    updatedAt: "2024-01-17T09:15:00Z",
-  },
-  {
-    id: "theme-4",
-    name: "Creative",
-    description: "Yaratıcı kişiler için renkli tema",
-    category: "creative",
-    preview: "/placeholder.svg?height=300&width=400",
-    backgroundColor: "#FEF3C7",
-    textColor: "#92400E",
-    accentColor: "#F59E0B",
-    fontFamily: "Inter",
-    isActive: false,
-    usageCount: 15,
-    createdAt: "2024-01-04T00:00:00Z",
-    updatedAt: "2024-01-18T14:45:00Z",
-  },
-]
-
 export default function ThemesPage() {
-  const [themes, setThemes] = useState<Theme[]>(mockThemes)
+  const [themes, setThemes] = useState<Theme[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newTheme, setNewTheme] = useState<Partial<Theme>>({
+  const [newTheme, setNewTheme] = useState({
     name: "",
     description: "",
-    category: "minimal",
-    backgroundColor: "#FFFFFF",
-    textColor: "#000000",
-    accentColor: "#3B82F6",
-    fontFamily: "Inter",
-    isActive: true,
+    type: "love",
+    colors: ["#ff69b4", "#ff1493"],
+    layout: "romantic",
+    is_premium: false,
   })
+
+  useEffect(() => {
+    fetchThemes()
+  }, [])
+
+  const fetchThemes = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/admin/themes")
+      const data = await response.json()
+
+      if (data.success) {
+        setThemes(data.themes)
+      } else {
+        toast.error("Temalar yüklenirken hata oluştu")
+      }
+    } catch (error) {
+      console.error("Tema yükleme hatası:", error)
+      toast.error("Temalar yüklenirken hata oluştu")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredThemes = themes.filter((theme) => {
     const matchesSearch =
       theme.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       theme.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || theme.category === selectedCategory
+    const matchesCategory = selectedCategory === "all" || theme.layout_config.type === selectedCategory
     return matchesSearch && matchesCategory
   })
 
-  const handleCreateTheme = () => {
-    const theme: Theme = {
-      id: `theme-${Date.now()}`,
-      name: newTheme.name || "",
-      description: newTheme.description || "",
-      category: (newTheme.category as any) || "minimal",
-      preview: "/placeholder.svg?height=300&width=400",
-      backgroundColor: newTheme.backgroundColor || "#FFFFFF",
-      textColor: newTheme.textColor || "#000000",
-      accentColor: newTheme.accentColor || "#3B82F6",
-      fontFamily: newTheme.fontFamily || "Inter",
-      isActive: newTheme.isActive || true,
-      usageCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  const handleCreateTheme = async () => {
+    try {
+      const response = await fetch("/api/admin/themes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTheme),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchThemes()
+        setIsCreateDialogOpen(false)
+        setNewTheme({
+          name: "",
+          description: "",
+          type: "love",
+          colors: ["#ff69b4", "#ff1493"],
+          layout: "romantic",
+          is_premium: false,
+        })
+        toast.success("Tema başarıyla oluşturuldu")
+      } else {
+        toast.error(data.message || "Tema oluşturulurken hata oluştu")
+      }
+    } catch (error) {
+      console.error("Tema oluşturma hatası:", error)
+      toast.error("Tema oluşturulurken hata oluştu")
     }
-
-    setThemes([...themes, theme])
-    setIsCreateDialogOpen(false)
-    setNewTheme({
-      name: "",
-      description: "",
-      category: "minimal",
-      backgroundColor: "#FFFFFF",
-      textColor: "#000000",
-      accentColor: "#3B82F6",
-      fontFamily: "Inter",
-      isActive: true,
-    })
-    toast.success("Tema başarıyla oluşturuldu")
   }
 
-  const handleToggleStatus = (themeId: string) => {
-    setThemes(themes.map((theme) => (theme.id === themeId ? { ...theme, isActive: !theme.isActive } : theme)))
-    toast.success("Tema durumu güncellendi")
-  }
+  const handleToggleStatus = async (themeId: string) => {
+    try {
+      const response = await fetch(`/api/admin/themes/${themeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle_status" }),
+      })
 
-  const handleDeleteTheme = (themeId: string) => {
-    setThemes(themes.filter((theme) => theme.id !== themeId))
-    toast.success("Tema silindi")
-  }
+      const data = await response.json()
 
-  const handleDuplicateTheme = (theme: Theme) => {
-    const duplicatedTheme: Theme = {
-      ...theme,
-      id: `theme-${Date.now()}`,
-      name: `${theme.name} (Kopya)`,
-      usageCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      if (data.success) {
+        await fetchThemes()
+        toast.success("Tema durumu güncellendi")
+      } else {
+        toast.error("Tema durumu güncellenirken hata oluştu")
+      }
+    } catch (error) {
+      console.error("Tema güncelleme hatası:", error)
+      toast.error("Tema durumu güncellenirken hata oluştu")
     }
-    setThemes([...themes, duplicatedTheme])
-    toast.success("Tema kopyalandı")
   }
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "romantic":
+  const handleDeleteTheme = async (themeId: string) => {
+    try {
+      const response = await fetch(`/api/admin/themes/${themeId}`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchThemes()
+        toast.success("Tema silindi")
+      } else {
+        toast.error("Tema silinirken hata oluştu")
+      }
+    } catch (error) {
+      console.error("Tema silme hatası:", error)
+      toast.error("Tema silinirken hata oluştu")
+    }
+  }
+
+  const handleDuplicateTheme = async (theme: Theme) => {
+    try {
+      const duplicatedTheme = {
+        name: `${theme.name} (Kopya)`,
+        description: theme.description,
+        type: theme.layout_config.type,
+        colors: theme.layout_config.colors,
+        layout: theme.layout_config.layout,
+        is_premium: theme.is_premium,
+      }
+
+      const response = await fetch("/api/admin/themes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(duplicatedTheme),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchThemes()
+        toast.success("Tema kopyalandı")
+      } else {
+        toast.error("Tema kopyalanırken hata oluştu")
+      }
+    } catch (error) {
+      console.error("Tema kopyalama hatası:", error)
+      toast.error("Tema kopyalanırken hata oluştu")
+    }
+  }
+
+  const handlePreviewTheme = (theme: Theme) => {
+    // Demo sayfasına yönlendir - tema tipine göre
+    const demoUrl = `/demo/${theme.layout_config.type}`
+    window.open(demoUrl, "_blank")
+  }
+
+  const getCategoryColor = (type: string) => {
+    switch (type) {
+      case "love":
         return "bg-pink-100 text-pink-800"
       case "adventure":
         return "bg-green-100 text-green-800"
-      case "business":
-        return "bg-blue-100 text-blue-800"
-      case "creative":
+      case "memories":
         return "bg-yellow-100 text-yellow-800"
       case "minimal":
         return "bg-gray-100 text-gray-800"
@@ -196,20 +209,31 @@ export default function ThemesPage() {
     }
   }
 
-  const getCategoryText = (category: string) => {
-    switch (category) {
-      case "romantic":
-        return "Romantik"
+  const getCategoryText = (type: string) => {
+    switch (type) {
+      case "love":
+        return "Aşk"
       case "adventure":
         return "Macera"
-      case "business":
-        return "İş"
-      case "creative":
-        return "Yaratıcı"
+      case "memories":
+        return "Anılar"
       case "minimal":
         return "Minimal"
       default:
-        return category
+        return type
+    }
+  }
+
+  const getThemePreviewImage = (theme: Theme) => {
+    switch (theme.layout_config.type) {
+      case "love":
+        return "/placeholder.svg?height=300&width=400&text=💕+Eternal+Love"
+      case "adventure":
+        return "/placeholder.svg?height=300&width=400&text=🏔️+Wild+Adventure"
+      case "memories":
+        return "/placeholder.svg?height=300&width=400&text=✨+Golden+Memories"
+      default:
+        return "/placeholder.svg?height=300&width=400&text=🎨+Theme"
     }
   }
 
@@ -254,50 +278,29 @@ export default function ThemesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="themeCategory">Kategori</Label>
+                <Label htmlFor="themeType">Tema Tipi</Label>
                 <select
-                  id="themeCategory"
-                  value={newTheme.category}
-                  onChange={(e) => setNewTheme({ ...newTheme, category: e.target.value as any })}
+                  id="themeType"
+                  value={newTheme.type}
+                  onChange={(e) => setNewTheme({ ...newTheme, type: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
-                  <option value="romantic">Romantik</option>
+                  <option value="love">Aşk</option>
                   <option value="adventure">Macera</option>
-                  <option value="business">İş</option>
-                  <option value="creative">Yaratıcı</option>
+                  <option value="memories">Anılar</option>
                   <option value="minimal">Minimal</option>
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="backgroundColor">Arkaplan</Label>
+              <div className="space-y-2">
+                <Label>Premium Tema</Label>
+                <div className="flex items-center space-x-2">
                   <input
-                    id="backgroundColor"
-                    type="color"
-                    value={newTheme.backgroundColor}
-                    onChange={(e) => setNewTheme({ ...newTheme, backgroundColor: e.target.value })}
-                    className="w-full h-10 border border-gray-300 rounded-md"
+                    type="checkbox"
+                    id="isPremium"
+                    checked={newTheme.is_premium}
+                    onChange={(e) => setNewTheme({ ...newTheme, is_premium: e.target.checked })}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="textColor">Metin</Label>
-                  <input
-                    id="textColor"
-                    type="color"
-                    value={newTheme.textColor}
-                    onChange={(e) => setNewTheme({ ...newTheme, textColor: e.target.value })}
-                    className="w-full h-10 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="accentColor">Vurgu</Label>
-                  <input
-                    id="accentColor"
-                    type="color"
-                    value={newTheme.accentColor}
-                    onChange={(e) => setNewTheme({ ...newTheme, accentColor: e.target.value })}
-                    className="w-full h-10 border border-gray-300 rounded-md"
-                  />
+                  <Label htmlFor="isPremium">Bu tema premium olsun</Label>
                 </div>
               </div>
             </div>
@@ -332,10 +335,9 @@ export default function ThemesPage() {
               className="px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="all">Tüm Kategoriler</option>
-              <option value="romantic">Romantik</option>
+              <option value="love">Aşk</option>
               <option value="adventure">Macera</option>
-              <option value="business">İş</option>
-              <option value="creative">Yaratıcı</option>
+              <option value="memories">Anılar</option>
               <option value="minimal">Minimal</option>
             </select>
           </div>
@@ -343,79 +345,98 @@ export default function ThemesPage() {
       </Card>
 
       {/* Themes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredThemes.map((theme) => (
-          <Card key={theme.id} className="overflow-hidden">
-            <div className="relative">
-              <Image
-                src={theme.preview || "/placeholder.svg"}
-                alt={theme.name}
-                width={400}
-                height={300}
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute top-2 right-2 flex gap-1">
-                <Badge className={getCategoryColor(theme.category)}>{getCategoryText(theme.category)}</Badge>
-                <Badge variant={theme.isActive ? "default" : "secondary"}>{theme.isActive ? "Aktif" : "Pasif"}</Badge>
-              </div>
-            </div>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{theme.name}</CardTitle>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: theme.backgroundColor }} />
-                  <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: theme.textColor }} />
-                  <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: theme.accentColor }} />
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <div className="h-48 bg-gray-200 animate-pulse" />
+              <CardHeader>
+                <div className="h-4 bg-gray-200 animate-pulse rounded mb-2" />
+                <div className="h-3 bg-gray-200 animate-pulse rounded" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredThemes.map((theme) => (
+            <Card key={theme.id} className="overflow-hidden">
+              <div className="relative">
+                <Image
+                  src={theme.preview_image || getThemePreviewImage(theme)}
+                  alt={theme.name}
+                  width={400}
+                  height={300}
+                  className="w-full h-48 object-cover"
+                />
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Badge className={getCategoryColor(theme.layout_config.type)}>
+                    {getCategoryText(theme.layout_config.type)}
+                  </Badge>
+                  <Badge variant={theme.is_active ? "default" : "secondary"}>
+                    {theme.is_active ? "Aktif" : "Pasif"}
+                  </Badge>
+                  {theme.is_premium && (
+                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                      Premium
+                    </Badge>
+                  )}
                 </div>
               </div>
-              <CardDescription>{theme.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                <span>{theme.usageCount} kullanım</span>
-                <span>{new Date(theme.updatedAt).toLocaleDateString("tr-TR")}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <a href={`/admin/themes/${theme.id}`}>
-                    <Edit className="h-4 w-4 mr-1" />
-                    Düzenle
-                  </a>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`/nfc/demo?theme=${theme.id}`, "_blank")}
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Önizle
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleDuplicateTheme(theme)}>
-                  <Copy className="h-4 w-4 mr-1" />
-                  Kopyala
-                </Button>
-                <Button
-                  variant={theme.isActive ? "outline" : "default"}
-                  size="sm"
-                  onClick={() => handleToggleStatus(theme.id)}
-                >
-                  {theme.isActive ? "Pasifleştir" : "Aktifleştir"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteTheme(theme.id)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{theme.name}</CardTitle>
+                  <div className="flex items-center gap-1">
+                    {theme.layout_config.colors.map((color, index) => (
+                      <div key={index} className="w-4 h-4 rounded-full border" style={{ backgroundColor: color }} />
+                    ))}
+                  </div>
+                </div>
+                <CardDescription>{theme.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <span>{theme.download_count} indirme</span>
+                  <span>{new Date(theme.updated_at).toLocaleDateString("tr-TR")}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={`/admin/themes/${theme.id}`}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Düzenle
+                    </a>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handlePreviewTheme(theme)}>
+                    <Eye className="h-4 w-4 mr-1" />
+                    Önizle
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleDuplicateTheme(theme)}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Kopyala
+                  </Button>
+                  <Button
+                    variant={theme.is_active ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => handleToggleStatus(theme.id)}
+                  >
+                    {theme.is_active ? "Pasifleştir" : "Aktifleştir"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteTheme(theme.id)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {filteredThemes.length === 0 && (
+      {filteredThemes.length === 0 && !loading && (
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-gray-500">Aradığınız kriterlere uygun tema bulunamadı.</p>
