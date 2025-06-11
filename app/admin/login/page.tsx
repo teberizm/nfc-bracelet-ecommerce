@@ -30,6 +30,21 @@ export default function AdminLoginPage() {
       return
     }
 
+    // Demo için basit kontrol
+    if (email === "admin@nfcbileklik.com" && password === "admin123") {
+      // Demo admin token'ı kaydet
+      localStorage.setItem("adminToken", "admin-token-123")
+
+      toast({
+        title: "Giriş Başarılı!",
+        description: "Admin paneline yönlendiriliyorsunuz.",
+      })
+
+      router.push("/admin")
+      return
+    }
+
+    // Gerçek API çağrısı
     const success = await loginAdmin(email, password)
     if (success) {
       toast({
@@ -106,10 +121,17 @@ export default function AdminLoginPage() {
             </form>
 
             {/* Demo Bilgileri */}
-            <div className="bg-blue-50 p-4 rounded-lg text-left mt-6">
-              <p className="text-sm font-medium text-blue-800 mb-2">Demo Admin Bilgileri:</p>
-              <p className="text-sm text-blue-700">E-posta: admin@nfcbileklik.com</p>
-              <p className="text-sm text-blue-700">Şifre: admin123</p>
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-left mt-6">
+              <div className="flex items-center mb-2">
+                <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mr-2">
+                  !
+                </div>
+                <p className="text-sm font-medium text-blue-800">Demo Admin Bilgileri:</p>
+              </div>
+              <div className="ml-8">
+                <p className="text-sm text-blue-700 font-mono">E-posta: admin@nfcbileklik.com</p>
+                <p className="text-sm text-blue-700 font-mono">Şifre: admin123</p>
+              </div>
             </div>
           </CardContent>
         </Card>
