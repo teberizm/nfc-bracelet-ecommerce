@@ -5,6 +5,10 @@ import { sql } from "@/lib/database"
 
 export async function GET(request: NextRequest) {
   try {
+    // Cache-busting için timestamp ekle
+    const timestamp = new Date().getTime()
+    console.log("API çağrısı timestamp:", timestamp)
+
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "10")
@@ -250,14 +254,25 @@ export async function GET(request: NextRequest) {
     console.log("Normalize edilmiş kullanıcılar:", users.length)
     console.log("İlk kullanıcı örneği:", users[0])
 
-    return NextResponse.json({
-      success: true,
-      users,
-      total,
-      page,
-      totalPages,
-      hasMore: page < totalPages,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        users,
+        total,
+        page,
+        totalPages,
+        hasMore: page < totalPages,
+        timestamp: timestamp, // Cache-busting için timestamp ekle
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+          "Surrogate-Control": "no-store",
+        },
+      },
+    )
   } catch (error: any) {
     console.error("Users API hatası:", error)
     console.error("Hata detayı:", error.message)

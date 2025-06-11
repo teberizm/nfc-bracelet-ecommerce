@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Filter, RefreshCw, ShoppingBag, Calendar, User } from "lucide-react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 interface UserType {
   id: string
@@ -53,13 +54,19 @@ export default function AdminUsersPage() {
       if (filters.search) params.append("search", filters.search)
       params.append("sortBy", filters.sortBy)
       params.append("sortOrder", filters.sortOrder)
+      // Cache-busting için timestamp ekle
+      params.append("t", Date.now().toString())
 
       console.log("API çağrısı yapılıyor:", `/api/admin/users?${params}`)
 
       const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
+        cache: "no-store",
       })
 
       if (!response.ok) {
@@ -73,12 +80,14 @@ export default function AdminUsersPage() {
 
       if (data.success) {
         setUsers(data.users || [])
+        toast.success("Kullanıcılar başarıyla yüklendi")
       } else {
         throw new Error(data.message || "Bilinmeyen hata")
       }
     } catch (error) {
       console.error("Kullanıcıları çekerken hata:", error)
       setError(`Kullanıcılar yüklenirken hata oluştu: ${error.message}`)
+      toast.error("Kullanıcılar yüklenemedi")
       setUsers([])
     } finally {
       setLoading(false)
@@ -89,6 +98,16 @@ export default function AdminUsersPage() {
   const formatNumber = (value: any): string => {
     const num = Number(value || 0)
     return isNaN(num) ? "0" : num.toLocaleString("tr-TR")
+  }
+
+  // Tarih formatlaması
+  const formatDate = (dateString: string): string => {
+    try {
+      return new Date(dateString).toLocaleDateString("tr-TR")
+    } catch (error) {
+      console.error("Tarih formatlanırken hata:", error)
+      return "Geçersiz tarih"
+    }
   }
 
   if (loading) {
@@ -198,11 +217,11 @@ export default function AdminUsersPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        <span>{new Date(user.created_at).toLocaleDateString("tr-TR")}</span>
+                        <span>{formatDate(user.created_at)}</span>
                       </div>
                     </div>
                     <Button size="sm" className="mt-2" asChild>
-                      <Link href={`/admin/users/${user.id}`}>Detay</Link>
+                      <Link href={`/admin/users/${user.id}?t=${Date.now()}`}>Detay</Link>
                     </Button>
                   </div>
                 </div>

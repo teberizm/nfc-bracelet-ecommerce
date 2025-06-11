@@ -59,7 +59,8 @@ export default function UserDetailPage() {
         cache: "no-store",
         headers: {
           Pragma: "no-cache",
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Expires: "0",
         },
       })
       const data = await response.json()
@@ -77,7 +78,7 @@ export default function UserDetailPage() {
         setUser(data.user)
         setOrders(data.orders || [])
 
-        console.log("State güncellendi - Yeni kullanıcı adı:", data.user.name)
+        console.log("State güncellendi - Yeni kullanıcı adı:", data.user.first_name, data.user.last_name)
       } else {
         throw new Error(data.message)
       }
@@ -104,10 +105,15 @@ export default function UserDetailPage() {
         status: user.status,
       })
 
-      const response = await fetch(`/api/admin/users/${params.id}`, {
+      // Cache-busting için timestamp ekle
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/admin/users/${params.id}?t=${timestamp}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
         body: JSON.stringify({
           first_name: user.first_name,
@@ -152,7 +158,8 @@ export default function UserDetailPage() {
 
   const handleWhatsApp = () => {
     if (!user) return
-    const message = `Merhaba ${user.name}, NFC Bileklik ekibinden size ulaşıyoruz.`
+    const fullName = `${user.first_name} ${user.last_name}`.trim()
+    const message = `Merhaba ${fullName}, NFC Bileklik ekibinden size ulaşıyoruz.`
     const whatsappUrl = `https://wa.me/${user.phone.replace(/\s/g, "")}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
@@ -214,6 +221,16 @@ export default function UserDetailPage() {
         return "İptal Edildi"
       default:
         return status
+    }
+  }
+
+  // Tarih formatlaması
+  const formatDate = (dateString: string): string => {
+    try {
+      return new Date(dateString).toLocaleDateString("tr-TR")
+    } catch (error) {
+      console.error("Tarih formatlanırken hata:", error)
+      return "Geçersiz tarih"
     }
   }
 
@@ -370,13 +387,11 @@ export default function UserDetailPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Kayıt Tarihi</span>
-                  <span className="font-medium">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</span>
+                  <span className="font-medium">{formatDate(user.createdAt)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Son Giriş</span>
-                  <span className="font-medium">
-                    {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString("tr-TR") : "Hiç"}
-                  </span>
+                  <span className="font-medium">{user.lastLogin ? formatDate(user.lastLogin) : "Hiç"}</span>
                 </div>
               </CardContent>
             </Card>
