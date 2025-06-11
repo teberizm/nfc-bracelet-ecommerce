@@ -62,9 +62,12 @@ export default function UserDetailPage() {
       }
 
       if (data.success) {
+        console.log("Yeni kullanıcı verisi:", data.user)
+        console.log("Eski kullanıcı verisi:", user)
+
         setUser(data.user)
         setOrders(data.orders || [])
-        console.log("Kullanıcı detayı yüklendi:", data.user.name)
+        console.log("State güncellendi - Kullanıcı adı:", data.user.name)
       } else {
         throw new Error(data.message)
       }
@@ -111,12 +114,19 @@ export default function UserDetailPage() {
       }
 
       if (data.success) {
-        setIsEditing(false)
         toast.success("Kullanıcı bilgileri güncellendi")
         console.log("Güncelleme başarılı, sayfa yenileniyor...")
 
-        // Sayfayı yenile - güncel verileri çek
+        // Önce state'i temizle
+        setUser(null)
+        setOrders([])
+        setIsLoading(true)
+
+        // Sonra yeni verileri çek
         await fetchUserData()
+
+        // En son editing modunu kapat
+        setIsEditing(false)
       } else {
         throw new Error(data.message)
       }
