@@ -6,11 +6,12 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    console.log("Admin products API çağrısı başladı")
+    console.log("Admin products API başladı")
 
-    // Admin token'ını doğrula
+    // Admin token kontrolü
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Token bulunamadı")
       return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
     }
 
@@ -18,135 +19,90 @@ export async function GET(request: Request) {
     const adminPayload = await verifyAdminToken(token)
 
     if (!adminPayload) {
+      console.log("Geçersiz token")
       return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
     }
 
-    // URL parametrelerini al
-    const { searchParams } = new URL(request.url)
-    const search = searchParams.get("search") || ""
-    const sortBy = searchParams.get("sortBy") || "created_at"
-    const sortOrder = searchParams.get("sortOrder") || "desc"
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    console.log("Token doğrulandı, ürünler çekiliyor...")
 
-    console.log("Ürünler çekiliyor:", { search, sortBy, sortOrder, limit, offset })
-
-    // Basit ürün sorgusu
-    let baseQuery = `
+    // En basit sorgu ile başlayalım
+    const result = await sql`
       SELECT 
-        p.id,
-        p.name,
-        p.slug,
-        p.description,
-        p.short_description,
-        p.price,
-        p.original_price,
-        p.stock,
-        p.nfc_enabled,
-        p.is_active,
-        p.weight,
-        p.dimensions,
-        p.material,
-        p.rating,
-        p.review_count,
-        p.sales_count,
-        p.featured,
-        p.created_at,
-        p.updated_at,
-        c.name as category_name
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE 1=1
+        id,
+        name,
+        slug,
+        price,
+        stock,
+        is_active,
+        nfc_enabled,
+        created_at
+      FROM products 
+      ORDER BY created_at DESC 
+      LIMIT 50
     `
 
-    const params = []
+    console.log("SQL sorgusu tamamlandı, sonuç:", result?.length || 0, "ürün")
 
-    // Arama filtresi
-    if (search) {
-      baseQuery += ` AND (p.name ILIKE $${params.length + 1} OR COALESCE(c.name, '') ILIKE $${params.length + 1} OR p.material ILIKE $${params.length + 1})`
-      params.push(`%${search}%`)
-    }
-
-    // Sıralama
-    const validSortColumns = ["created_at", "name", "price", "stock", "sales_count", "rating", "updated_at"]
-    const validSortOrders = ["asc", "desc"]
-
-    if (validSortColumns.includes(sortBy) && validSortOrders.includes(sortOrder)) {
-      baseQuery += ` ORDER BY p.${sortBy} ${sortOrder.toUpperCase()}`
-    } else {
-      baseQuery += ` ORDER BY p.created_at DESC`
-    }
-
-    baseQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-    params.push(limit, offset)
-
-    console.log("SQL Query:", baseQuery)
-    console.log("Params:", params)
-
-    const result = await sql(baseQuery, ...params)
-
-    if (!Array.isArray(result)) {
-      console.error("SQL sonucu array değil:", result)
-      return NextResponse.json({ success: true, products: [] })
-    }
-
-    // Ürünleri basit formatta döndür
-    const products = result
-      .map((product) => {
-        try {
-          return {
-            id: product.id,
-            name: product.name || "",
-            slug: product.slug || "",
-            description: product.description || "",
-            short_description: product.short_description || "",
-            price: product.price ? Number.parseFloat(product.price) : 0,
-            original_price: product.original_price ? Number.parseFloat(product.original_price) : null,
-            stock: product.stock ? Number.parseInt(product.stock) : 0,
-            category_name: product.category_name || "Kategori Yok",
-            nfc_enabled: Boolean(product.nfc_enabled),
-            is_active: Boolean(product.is_active),
-            weight: product.weight || "",
-            dimensions: product.dimensions || "",
-            material: product.material || "",
-            rating: product.rating ? Number.parseFloat(product.rating) : 0,
-            review_count: product.review_count ? Number.parseInt(product.review_count) : 0,
-            sales_count: product.sales_count ? Number.parseInt(product.sales_count) : 0,
-            featured: Boolean(product.featured),
-            created_at: product.created_at,
-            updated_at: product.updated_at,
-            primary_image: "/placeholder.svg?height=120&width=120&text=" + encodeURIComponent(product.name || "Ürün"),
-            features: [],
-            images: [],
-            specifications: [],
-          }
-        } catch (error) {
-          console.error("Ürün işlenirken hata:", error)
-          return null
-        }
+    if (!result || !Array.isArray(result)) {
+      console.error("SQL sonucu geçersiz:", result)
+      return NextResponse.json({
+        success: true,
+        products: [],
+        message: "Veri bulunamadı",
       })
-      .filter(Boolean) // null değerleri filtrele
+    }
 
-    console.log(`${products.length} ürün başarıyla işlendi`)
-
-    const response = NextResponse.json({
-      success: true,
-      products,
+    // Basit veri dönüşümü
+    const products = result.map((row) => {
+      try {
+        return {
+          id: row.id || "",
+          name: row.name || "İsimsiz Ürün",
+          slug: row.slug || "",
+          price: row.price ? Number.parseFloat(row.price.toString()) : 0,
+          stock: row.stock ? Number.parseInt(row.stock.toString()) : 0,
+          category_name: "Genel", // Şimdilik sabit
+          primary_image: "/placeholder.svg?height=120&width=120&text=Ürün",
+          is_active: Boolean(row.is_active),
+          nfc_enabled: Boolean(row.nfc_enabled),
+          created_at: row.created_at || new Date().toISOString(),
+        }
+      } catch (error) {
+        console.error("Ürün işleme hatası:", error)
+        return {
+          id: "error",
+          name: "Hatalı Ürün",
+          slug: "error",
+          price: 0,
+          stock: 0,
+          category_name: "Hata",
+          primary_image: "/placeholder.svg?height=120&width=120&text=Hata",
+          is_active: false,
+          nfc_enabled: false,
+          created_at: new Date().toISOString(),
+        }
+      }
     })
 
-    // Cache kontrolü
-    response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
-    response.headers.set("Pragma", "no-cache")
-    response.headers.set("Expires", "0")
+    console.log("Ürünler işlendi:", products.length)
 
-    return response
+    return NextResponse.json({
+      success: true,
+      products: products,
+    })
   } catch (error) {
-    console.error("Admin products hatası:", error)
+    console.error("API Hatası - Detay:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    })
+
     return NextResponse.json(
       {
         success: false,
-        message: "Ürünler çekilirken hata oluştu",
-        error: error.message || "Bilinmeyen hata",
+        message: "Sunucu hatası oluştu",
+        error: error.message,
+        details: "Veritabanı bağlantısı veya sorgu hatası",
       },
       { status: 500 },
     )
