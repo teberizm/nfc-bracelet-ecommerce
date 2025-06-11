@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { useAdmin } from "@/contexts/admin-context"
 
 interface ProductImage {
   file: File | null
@@ -68,7 +67,6 @@ const categories = [
 
 export default function NewProductPage() {
   const router = useRouter()
-  const { state } = useAdmin()
   const [activeTab, setActiveTab] = useState("details")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -301,9 +299,11 @@ export default function NewProductPage() {
     })
   }
 
-  // Dosya yükleme fonksiyonu
+  // Basit dosya yükleme fonksiyonu
   const uploadFile = async (file: File): Promise<string> => {
     try {
+      console.log("📤 Dosya yükleniyor:", file.name)
+
       // Dosya tipi kontrolü
       const isImage = file.type.startsWith("image/")
       const isVideo = file.type.startsWith("video/")
@@ -315,11 +315,9 @@ export default function NewProductPage() {
       // Form data oluştur
       const formData = new FormData()
       formData.append("file", file)
-
-      // Dosya tipini belirt
       formData.append("fileType", isImage ? "image" : "video")
 
-      // API'ye gönder
+      // API'ye gönder - TOKEN YOK
       const response = await fetch("/api/admin/upload", {
         method: "POST",
         body: formData,
@@ -331,9 +329,10 @@ export default function NewProductPage() {
       }
 
       const data = await response.json()
+      console.log("✅ Dosya yüklendi:", data.url)
       return data.url
     } catch (error) {
-      console.error("Dosya yükleme hatası:", error)
+      console.error("❌ Dosya yükleme hatası:", error)
       throw error
     }
   }
@@ -343,76 +342,31 @@ export default function NewProductPage() {
     try {
       setUploading(true)
 
-      // Yüklenecek resimler var mı kontrol et
       if (productData.images.length === 0) {
         return { imageUrls: [], primaryImageUrl: "" }
       }
 
-      // Tüm resimleri yükle
+      console.log("📸 Toplam", productData.images.length, "resim yüklenecek")
+
       const uploadPromises = productData.images.map(async (image, index) => {
         if (!image.file) return null
 
-        // Resim durumunu güncelle
-        const updatedImages = [...productData.images]
-        updatedImages[index] = {
-          ...updatedImages[index],
-          is_uploading: true,
-          upload_progress: 0,
-        }
-
-        setProductData({
-          ...productData,
-          images: updatedImages,
-        })
-
         try {
-          // Resmi yükle
           const url = await uploadFile(image.file)
-
-          // Başarılı yükleme durumunu güncelle
-          const successImages = [...productData.images]
-          successImages[index] = {
-            ...successImages[index],
-            is_uploading: false,
-            upload_progress: 100,
-            uploaded_url: url,
-          }
-
-          setProductData({
-            ...productData,
-            images: successImages,
-          })
-
           return {
             url,
             is_primary: image.is_primary,
             alt_text: image.alt_text,
           }
         } catch (error) {
-          // Hata durumunu güncelle
-          const errorImages = [...productData.images]
-          errorImages[index] = {
-            ...errorImages[index],
-            is_uploading: false,
-            upload_progress: 0,
-          }
-
-          setProductData({
-            ...productData,
-            images: errorImages,
-          })
-
+          console.error(`❌ Resim ${index + 1} yüklenemedi:`, error)
           throw error
         }
       })
 
-      // Tüm yüklemeleri bekle
       const results = await Promise.all(uploadPromises)
-
-      // Null olmayan sonuçları filtrele
       const validResults = results.filter(Boolean) as { url: string; is_primary: boolean; alt_text: string }[]
 
-      // URL'leri ve ana resmi döndür
       const imageUrls = validResults.map((r) => r.url)
       const primaryImage = validResults.find((r) => r.is_primary)
 
@@ -421,7 +375,7 @@ export default function NewProductPage() {
         primaryImageUrl: primaryImage?.url || (imageUrls.length > 0 ? imageUrls[0] : ""),
       }
     } catch (error) {
-      console.error("Resim yükleme hatası:", error)
+      console.error("❌ Resim yükleme hatası:", error)
       throw error
     } finally {
       setUploading(false)
@@ -434,11 +388,12 @@ export default function NewProductPage() {
 
     try {
       setVideo360Uploading(true)
+      console.log("🎥 360° video yükleniyor")
       const url = await uploadFile(video360File)
       setVideo360Url(url)
       return url
     } catch (error) {
-      console.error("360 video yükleme hatası:", error)
+      console.error("❌ 360 video yükleme hatası:", error)
       throw error
     } finally {
       setVideo360Uploading(false)
@@ -451,6 +406,7 @@ export default function NewProductPage() {
 
     try {
       setSaving(true)
+      console.log("💾 Ürün kaydetme işlemi başlıyor...")
 
       // Zorunlu alanları kontrol et
       if (!productData.name.trim()) {
@@ -473,16 +429,15 @@ export default function NewProductPage() {
       let video360UploadedUrl = ""
 
       try {
-        // Önce resimleri yükle
-        imageResults = await uploadAllImages()
+        if (productData.images.length > 0) {
+          imageResults = await uploadAllImages()
+        }
 
-        // Sonra 360 videoyu yükle (varsa)
         if (video360File) {
           video360UploadedUrl = await uploadVideo360()
         }
       } catch (error) {
         toast.error("Dosya yükleme sırasında bir hata oluştu")
-        console.error("Dosya yükleme hatası:", error)
         return
       }
 
@@ -493,19 +448,18 @@ export default function NewProductPage() {
         images: imageResults.imageUrls.map((url, index) => ({
           image_url: url,
           alt_text: productData.images[index]?.alt_text || productData.name,
-          is_primary: index === 0, // İlk resim ana resim olsun
+          is_primary: index === 0,
           sort_order: index,
         })),
       }
 
-      console.log("Ürün kaydediliyor:", productPayload)
+      console.log("📦 Ürün kaydediliyor...")
 
-      // API'ye gönder
+      // API'ye gönder - TOKEN YOK
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
         },
         body: JSON.stringify(productPayload),
       })
@@ -516,13 +470,12 @@ export default function NewProductPage() {
       }
 
       const data = await response.json()
+      console.log("✅ Ürün başarıyla kaydedildi")
 
       toast.success("Ürün başarıyla kaydedildi")
-
-      // Ürün listesine yönlendir
       router.push("/admin/products")
     } catch (error) {
-      console.error("Ürün kaydetme hatası:", error)
+      console.error("❌ Ürün kaydetme hatası:", error)
       toast.error(error instanceof Error ? error.message : "Ürün kaydedilirken bir hata oluştu")
     } finally {
       setSaving(false)

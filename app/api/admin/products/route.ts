@@ -1,261 +1,155 @@
 import { NextResponse } from "next/server"
-import { verifyAdminToken } from "@/lib/auth"
-import { sql } from "@/lib/database"
+import { sql } from "@vercel/postgres"
 import { v4 as uuidv4 } from "uuid"
 
 export const dynamic = "force-dynamic"
 
-// GET - Tüm ürünleri getir
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    console.log("Admin products API başladı")
+    console.log("📦 Ürünler listeleniyor...")
 
-    // Admin token kontrolü
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Token bulunamadı")
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      console.log("Geçersiz token")
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
-
-    console.log("Token doğrulandı, ürünler çekiliyor...")
-
-    // Users API'si ile aynı pattern kullanarak basit sorgu
     const result = await sql`
       SELECT 
-        p.id,
-        p.name,
-        p.slug,
-        p.price,
-        p.stock,
-        p.nfc_enabled,
-        p.is_active,
-        p.created_at,
-        COALESCE(c.name, 'Kategori Yok') as category_name
+        p.*,
+        pi.image_url as primary_image,
+        COALESCE(pi_count.image_count, 0) as image_count
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
+      LEFT JOIN (
+        SELECT product_id, COUNT(*) as image_count
+        FROM product_images
+        GROUP BY product_id
+      ) pi_count ON p.id = pi_count.product_id
       ORDER BY p.created_at DESC
-      LIMIT 50
     `
 
-    console.log("SQL sorgusu tamamlandı, sonuç:", result?.length || 0, "ürün")
+    console.log("✅ Ürünler başarıyla listelendi:", result.rows.length, "ürün")
 
-    if (!result || !Array.isArray(result)) {
-      console.error("SQL sonucu geçersiz:", result)
-      return NextResponse.json({
-        success: true,
-        products: [],
-        message: "Veri bulunamadı",
-      })
-    }
-
-    // Users API'si ile aynı pattern kullanarak veri işleme
-    const products = result
-      .map((row) => {
-        try {
-          return {
-            id: row.id || "",
-            name: row.name || "İsimsiz Ürün",
-            slug: row.slug || "",
-            price: row.price ? Number.parseFloat(row.price.toString()) : 0,
-            stock: row.stock ? Number.parseInt(row.stock.toString()) : 0,
-            category_name: row.category_name || "Kategori Yok",
-            primary_image: "/placeholder.svg?height=120&width=120&text=" + encodeURIComponent(row.name || "Ürün"),
-            is_active: Boolean(row.is_active),
-            nfc_enabled: Boolean(row.nfc_enabled),
-            created_at: row.created_at || new Date().toISOString(),
-          }
-        } catch (error) {
-          console.error("Ürün işleme hatası:", error)
-          return null
-        }
-      })
-      .filter(Boolean) // null değerleri filtrele
-
-    console.log("Ürünler işlendi:", products.length)
-
-    // Users API'si ile aynı response format
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
-      products: products,
+      products: result.rows,
     })
-
-    // Cache kontrolü
-    response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
-    response.headers.set("Pragma", "no-cache")
-    response.headers.set("Expires", "0")
-
-    return response
   } catch (error) {
-    console.error("API Hatası - Detay:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    })
-
+    console.error("❌ Ürün listeleme hatası:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Sunucu hatası oluştu",
-        error: error.message,
-        details: "Veritabanı bağlantısı veya sorgu hatası",
+        message: "Ürünler yüklenirken bir hata oluştu",
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
       },
       { status: 500 },
     )
   }
 }
 
-// POST - Yeni ürün ekle
 export async function POST(request: Request) {
   try {
-    console.log("Yeni ürün ekleme API başladı")
+    console.log("💾 Yeni ürün kaydediliyor...")
 
-    // Admin token kontrolü
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Token bulunamadı")
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
+    const productData = await request.json()
+    console.log("📦 Ürün verisi alındı:", productData.name)
 
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      console.log("Geçersiz token")
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
-
-    // Request body'den ürün verilerini al
-    const body = await request.json()
-    console.log("Ürün verileri alındı:", { name: body.name, slug: body.slug })
-
-    // Zorunlu alanları kontrol et
-    if (!body.name || !body.slug) {
-      return NextResponse.json({ success: false, message: "Ürün adı ve slug zorunludur" }, { status: 400 })
-    }
-
-    // Slug benzersizliğini kontrol et
-    const existingProduct = await sql`SELECT id FROM products WHERE slug = ${body.slug} LIMIT 1`
-    if (existingProduct && existingProduct.length > 0) {
-      return NextResponse.json({ success: false, message: "Bu slug zaten kullanılıyor" }, { status: 400 })
-    }
-
-    // Yeni ürün ID'si oluştur
+    // Ürün ID'si oluştur
     const productId = uuidv4()
-    console.log("Yeni ürün ID'si:", productId)
 
-    // Ürünü veritabanına ekle
-    await sql`
+    // Ana ürün kaydını oluştur
+    const productResult = await sql`
       INSERT INTO products (
         id, name, slug, description, short_description, price, original_price,
         stock, category_id, nfc_enabled, is_active, weight, dimensions, material,
-        featured, meta_title, meta_description, video_360_url
+        featured, meta_title, meta_description, video_360_url, created_at, updated_at
       ) VALUES (
-        ${productId},
-        ${body.name},
-        ${body.slug},
-        ${body.description || ""},
-        ${body.short_description || ""},
-        ${body.price || 0},
-        ${body.original_price || null},
-        ${body.stock || 0},
-        ${body.category_id || null},
-        ${body.nfc_enabled || false},
-        ${body.is_active !== false},
-        ${body.weight || ""},
-        ${body.dimensions || ""},
-        ${body.material || ""},
-        ${body.featured || false},
-        ${body.meta_title || null},
-        ${body.meta_description || null},
-        ${body.video_360_url || null}
+        ${productId}, ${productData.name}, ${productData.slug}, ${productData.description},
+        ${productData.short_description}, ${productData.price}, ${productData.original_price},
+        ${productData.stock}, ${productData.category_id || null}, ${productData.nfc_enabled},
+        ${productData.is_active}, ${productData.weight}, ${productData.dimensions},
+        ${productData.material}, ${productData.featured}, ${productData.meta_title},
+        ${productData.meta_description}, ${productData.video_360_url || null},
+        NOW(), NOW()
       )
+      RETURNING id
     `
 
-    console.log("Ürün veritabanına eklendi")
+    console.log("✅ Ana ürün kaydedildi:", productId)
 
-    // Ürün özellikleri varsa ekle
-    if (Array.isArray(body.features) && body.features.length > 0) {
-      console.log(`${body.features.length} özellik ekleniyor...`)
+    // Ürün resimlerini kaydet
+    if (productData.images && productData.images.length > 0) {
+      console.log("📸 Ürün resimleri kaydediliyor:", productData.images.length, "resim")
 
-      for (const feature of body.features) {
+      for (let i = 0; i < productData.images.length; i++) {
+        const image = productData.images[i]
+        const imageId = uuidv4()
+
+        await sql`
+          INSERT INTO product_images (
+            id, product_id, image_url, alt_text, is_primary, sort_order, created_at
+          ) VALUES (
+            ${imageId}, ${productId}, ${image.image_url}, ${image.alt_text},
+            ${image.is_primary || i === 0}, ${image.sort_order || i}, NOW()
+          )
+        `
+      }
+
+      console.log("✅ Ürün resimleri kaydedildi")
+    }
+
+    // Ürün özelliklerini kaydet
+    if (productData.features && productData.features.length > 0) {
+      console.log("🏷️ Ürün özellikleri kaydediliyor:", productData.features.length, "özellik")
+
+      for (const feature of productData.features) {
         if (feature.feature_name && feature.feature_value) {
+          const featureId = uuidv4()
+
           await sql`
             INSERT INTO product_features (
-              product_id, feature_name, feature_value, sort_order
+              id, product_id, feature_name, feature_value, sort_order, created_at
             ) VALUES (
-              ${productId},
-              ${feature.feature_name},
-              ${feature.feature_value},
-              ${feature.sort_order || 0}
+              ${featureId}, ${productId}, ${feature.feature_name}, ${feature.feature_value},
+              ${feature.sort_order || 0}, NOW()
             )
           `
         }
       }
+
+      console.log("✅ Ürün özellikleri kaydedildi")
     }
 
-    // Teknik özellikler varsa ekle
-    if (Array.isArray(body.specifications) && body.specifications.length > 0) {
-      console.log(`${body.specifications.length} teknik özellik ekleniyor...`)
+    // Teknik özellikleri kaydet
+    if (productData.specifications && productData.specifications.length > 0) {
+      console.log("🔧 Teknik özellikler kaydediliyor:", productData.specifications.length, "özellik")
 
-      for (const spec of body.specifications) {
+      for (const spec of productData.specifications) {
         if (spec.spec_name && spec.spec_value) {
+          const specId = uuidv4()
+
           await sql`
             INSERT INTO product_specifications (
-              product_id, spec_name, spec_value, sort_order
+              id, product_id, spec_name, spec_value, sort_order, created_at
             ) VALUES (
-              ${productId},
-              ${spec.spec_name},
-              ${spec.spec_value},
-              ${spec.sort_order || 0}
+              ${specId}, ${productId}, ${spec.spec_name}, ${spec.spec_value},
+              ${spec.sort_order || 0}, NOW()
             )
           `
         }
       }
+
+      console.log("✅ Teknik özellikler kaydedildi")
     }
 
-    // Resimler varsa ekle
-    if (Array.isArray(body.images) && body.images.length > 0) {
-      console.log(`${body.images.length} resim ekleniyor...`)
-
-      for (const image of body.images) {
-        if (image.image_url) {
-          await sql`
-            INSERT INTO product_images (
-              product_id, image_url, alt_text, sort_order, is_primary
-            ) VALUES (
-              ${productId},
-              ${image.image_url},
-              ${image.alt_text || ""},
-              ${image.sort_order || 0},
-              ${image.is_primary || false}
-            )
-          `
-        }
-      }
-    }
-
-    console.log("Ürün başarıyla eklendi:", productId)
+    console.log("🎉 Ürün başarıyla kaydedildi:", productId)
 
     return NextResponse.json({
       success: true,
-      message: "Ürün başarıyla eklendi",
+      message: "Ürün başarıyla kaydedildi",
       productId: productId,
     })
   } catch (error) {
-    console.error("Ürün ekleme hatası:", error)
-
+    console.error("❌ Ürün kaydetme hatası:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Ürün eklenirken bir hata oluştu",
+        message: "Ürün kaydedilirken bir hata oluştu",
         error: error instanceof Error ? error.message : "Bilinmeyen hata",
       },
       { status: 500 },

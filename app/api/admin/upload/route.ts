@@ -1,35 +1,24 @@
 import { NextResponse } from "next/server"
 import { put } from "@vercel/blob"
-import { verifyAdminToken } from "@/lib/auth"
 import { v4 as uuidv4 } from "uuid"
 
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
-    console.log("Upload API başladı")
-
-    // Admin token kontrolü
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Token bulunamadı")
-      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const adminPayload = await verifyAdminToken(token)
-
-    if (!adminPayload) {
-      console.log("Geçersiz token")
-      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
-    }
-
-    console.log("Token doğrulandı, dosya yükleniyor...")
+    console.log("📤 Upload API başladı")
 
     // Multipart form data işleme
     const formData = await request.formData()
     const file = formData.get("file") as File
     const fileType = (formData.get("fileType") as string) || "image"
+
+    console.log("📄 Dosya bilgileri:", {
+      name: file?.name,
+      size: file?.size,
+      type: file?.type,
+      fileType: fileType,
+    })
 
     if (!file) {
       return NextResponse.json({ success: false, message: "Dosya bulunamadı" }, { status: 400 })
@@ -60,7 +49,7 @@ export async function POST(request: Request) {
     const uniqueId = uuidv4()
     const fileName = `${fileType === "image" ? "product-images" : "product-videos"}/${uniqueId}.${fileExtension}`
 
-    console.log(`Dosya yükleniyor: ${fileName}, boyut: ${file.size} bytes`)
+    console.log(`☁️ Vercel Blob'a yükleniyor: ${fileName}, boyut: ${file.size} bytes`)
 
     // Vercel Blob'a yükleme
     const blob = await put(fileName, file, {
@@ -68,7 +57,7 @@ export async function POST(request: Request) {
       addRandomSuffix: false,
     })
 
-    console.log("Dosya başarıyla yüklendi:", blob.url)
+    console.log("✅ Dosya başarıyla yüklendi:", blob.url)
 
     return NextResponse.json({
       success: true,
@@ -77,7 +66,7 @@ export async function POST(request: Request) {
       fileType: fileType,
     })
   } catch (error) {
-    console.error("Dosya yükleme hatası:", error)
+    console.error("❌ Dosya yükleme hatası:", error)
     return NextResponse.json(
       {
         success: false,
