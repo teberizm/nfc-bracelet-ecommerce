@@ -1,15 +1,27 @@
-import { neon } from "@neondatabase/serverless"
+import { neon, neonConfig } from "@neondatabase/serverless"
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set")
 }
 
+// Neon bağlantı ayarları - önbelleği devre dışı bırak
+neonConfig.fetchConnectionCache = false
+neonConfig.wsConnectionCache = false
+
+// Her sorguda yeni bir bağlantı oluştur
 export const sql = neon(process.env.DATABASE_URL)
+
+// Taze bir veritabanı bağlantısı oluşturan yardımcı fonksiyon
+export function getFreshConnection() {
+  return neon(process.env.DATABASE_URL + "?cacheBuster=" + Date.now())
+}
 
 // User functions
 export async function getUserByEmail(email: string) {
   try {
-    const result = await sql`
+    // Taze bağlantı kullan
+    const freshSql = getFreshConnection()
+    const result = await freshSql`
       SELECT * FROM users WHERE email = ${email} AND is_active = true LIMIT 1
     `
     return result[0] || null
@@ -21,7 +33,9 @@ export async function getUserByEmail(email: string) {
 
 export async function getUserById(id: string) {
   try {
-    const result = await sql`
+    // Taze bağlantı kullan
+    const freshSql = getFreshConnection()
+    const result = await freshSql`
       SELECT * FROM users WHERE id = ${id} AND is_active = true LIMIT 1
     `
     return result[0] || null
@@ -54,7 +68,8 @@ export async function createUser(userData: {
 // Admin functions
 export async function getAdminByEmail(email: string) {
   try {
-    const result = await sql`
+    const freshSql = getFreshConnection()
+    const result = await freshSql`
       SELECT * FROM admins WHERE email = ${email} AND is_active = true LIMIT 1
     `
     return result[0] || null
@@ -66,7 +81,8 @@ export async function getAdminByEmail(email: string) {
 
 export async function getAdminById(id: string) {
   try {
-    const result = await sql`
+    const freshSql = getFreshConnection()
+    const result = await freshSql`
       SELECT * FROM admins WHERE id = ${id} AND is_active = true LIMIT 1
     `
     return result[0] || null
@@ -601,6 +617,11 @@ export async function getAllUsersForAdmin(filters: {
   try {
     const { limit = 50, offset = 0, search, sortBy = "created_at", sortOrder = "desc" } = filters
 
+    // Taze bağlantı kullan
+    const freshSql = getFreshConnection()
+
+    console.log("Taze veritabanı bağlantısı oluşturuldu:", new Date().toISOString())
+
     let query = `
       SELECT u.*, 
              COUNT(o.id) as total_orders,
@@ -632,7 +653,14 @@ export async function getAllUsersForAdmin(filters: {
 
     queryParams.push(limit, offset)
 
-    const result = await sql.unsafe(query, ...queryParams)
+    console.log("SQL sorgusu çalıştırılıyor:", query)
+    console.log("Parametreler:", queryParams)
+
+    const result = await freshSql.unsafe(query, ...queryParams)
+
+    console.log("Veritabanı sonucu alındı:", new Date().toISOString())
+    console.log("Sonuç sayısı:", result.length)
+
     return result
   } catch (error) {
     console.error("Error getting all users for admin:", error)

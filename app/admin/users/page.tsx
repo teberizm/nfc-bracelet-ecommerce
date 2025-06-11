@@ -27,17 +27,19 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0) // Zorla yenileme için key
   const [filters, setFilters] = useState({
     search: "",
     sortBy: "created_at",
     sortOrder: "desc",
   })
 
+  // Sayfa yüklendiğinde ve filtreler değiştiğinde verileri çek
   useEffect(() => {
     if (state.isAuthenticated) {
       fetchUsers()
     }
-  }, [state.isAuthenticated, filters])
+  }, [state.isAuthenticated, filters, refreshKey])
 
   const fetchUsers = async () => {
     try {
@@ -53,20 +55,26 @@ export default function AdminUsersPage() {
       if (filters.search) params.append("search", filters.search)
       params.append("sortBy", filters.sortBy)
       params.append("sortOrder", filters.sortOrder)
-      // Cache busting için timestamp ekleyelim
+      // Cache busting için timestamp ve random değer ekleyelim
       params.append("t", Date.now().toString())
+      params.append("r", Math.random().toString())
 
-      console.log("API çağrısı yapılıyor:", `/api/admin/users?${params}`)
+      const url = `/api/admin/users?${params}`
+      console.log("=== Frontend API çağrısı ===")
+      console.log("URL:", url)
+      console.log("Timestamp:", new Date().toISOString())
 
-      const response = await fetch(`/api/admin/users?${params}`, {
+      const response = await fetch(url, {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
           Pragma: "no-cache",
         },
         cache: "no-store",
-        next: { revalidate: 0 },
       })
+
+      console.log("Response status:", response.status)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -75,9 +83,18 @@ export default function AdminUsersPage() {
       }
 
       const data = await response.json()
-      console.log("API yanıtı:", data)
+      console.log("=== Frontend API Yanıtı ===")
+      console.log("Success:", data.success)
+      console.log("Timestamp:", data.timestamp)
+      console.log("User count:", data.users?.length)
+
+      // İlk kullanıcının detaylarını logla
+      if (data.users && data.users.length > 0) {
+        console.log("İlk kullanıcı detayı:", data.users[0])
+      }
 
       if (data.success) {
+        // Verileri state'e kaydet
         setUsers(data.users || [])
       } else {
         throw new Error(data.message || "Bilinmeyen hata")
@@ -89,6 +106,12 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Manuel yenileme fonksiyonu
+  const handleRefresh = () => {
+    // refreshKey'i değiştirerek useEffect'i tetikle
+    setRefreshKey((prev) => prev + 1)
   }
 
   if (loading) {
@@ -103,7 +126,7 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Kullanıcı Yönetimi</h1>
-        <Button onClick={fetchUsers} variant="outline">
+        <Button onClick={handleRefresh} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
           Yenile
         </Button>
@@ -165,7 +188,7 @@ export default function AdminUsersPage() {
       <div className="grid gap-4">
         {users.length > 0 ? (
           users.map((user) => (
-            <Card key={user.id} className="hover:shadow-md transition-shadow">
+            <Card key={`${user.id}-${refreshKey}`} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -202,7 +225,7 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
                     <Button size="sm" className="mt-2" asChild>
-                      <Link href={`/admin/users/${user.id}`}>Detay</Link>
+                      <Link href={`/admin/users/${user.id}?t=${Date.now()}`}>Detay</Link>
                     </Button>
                   </div>
                 </div>

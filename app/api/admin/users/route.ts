@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
 import { verifyAdminToken } from "@/lib/auth"
-import { sql } from "@/lib/database"
+import { getFreshConnection } from "@/lib/database"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: Request) {
   try {
-    console.log("Admin users API çağrısı başladı")
+    console.log("=== Admin users API çağrısı başladı ===")
+    console.log("Timestamp:", new Date().toISOString())
 
     // Admin token'ını doğrula
     const authHeader = request.headers.get("authorization")
@@ -29,126 +31,93 @@ export async function GET(request: Request) {
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-    console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
+    console.log("Parametreler:", { search, sortBy, sortOrder, limit, offset })
 
-    // Neon SQL tagged template literal kullanarak sorgu
-    let result
+    // Taze bir veritabanı bağlantısı oluştur
+    const freshSql = getFreshConnection()
+    console.log("Taze veritabanı bağlantısı oluşturuldu")
 
-    if (search) {
-      console.log("Arama ile kullanıcılar çekiliyor:", search)
-      result = await sql`
-        SELECT 
-          u.id, 
-          u.email, 
-          u.first_name, 
-          u.last_name, 
-          u.phone, 
-          u.created_at, 
-          u.is_active,
-          COUNT(o.id) as total_orders,
-          COALESCE(SUM(o.total_amount), 0) as total_spent
-        FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id
-        WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
-        GROUP BY u.id
-        ORDER BY u.${sql(sortBy)} ${sql.unsafe(sortOrder.toUpperCase())}
-        LIMIT ${limit} OFFSET ${offset}
-      `
-    } else {
-      console.log("Tüm kullanıcılar çekiliyor")
-      if (sortBy === "created_at") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id
-          ORDER BY u.created_at DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (sortBy === "first_name") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id
-          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id
-          ORDER BY u.created_at DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `
+    // Önce basit bir sorgu ile tüm kullanıcıları çekelim
+    console.log("=== Veritabanından kullanıcılar çekiliyor ===")
+
+    const result = await freshSql`
+      SELECT 
+        u.id, 
+        u.email, 
+        u.first_name, 
+        u.last_name, 
+        u.phone, 
+        u.created_at, 
+        u.updated_at,
+        u.is_active,
+        COUNT(o.id) as total_orders,
+        COALESCE(SUM(o.total_amount), 0) as total_spent
+      FROM users u
+      LEFT JOIN orders o ON u.id = o.user_id
+      ${search ? freshSql`WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})` : freshSql``}
+      GROUP BY u.id, u.email, u.first_name, u.last_name, u.phone, u.created_at, u.updated_at, u.is_active
+      ORDER BY u.${freshSql(sortBy)} ${freshSql.unsafe(sortOrder.toUpperCase())}
+      LIMIT ${limit} OFFSET ${offset}
+    `
+
+    console.log("=== RAW Veritabanı Sonucu ===")
+    console.log("Sonuç sayısı:", result.length)
+    result.forEach((row, index) => {
+      console.log(`Kullanıcı ${index + 1}:`, {
+        id: row.id,
+        email: row.email,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone: row.phone,
+        updated_at: row.updated_at,
+        is_active: row.is_active,
+      })
+    })
+
+    // Verileri formatla
+    const users = result.map((row) => {
+      const user = {
+        id: row.id,
+        email: row.email,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone: row.phone,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        is_active: row.is_active,
+        total_orders: Number.parseInt(row.total_orders || "0"),
+        total_spent: Number.parseFloat(row.total_spent || "0"),
       }
+
+      console.log("Formatlanmış kullanıcı:", user)
+      return user
+    })
+
+    console.log("=== API Yanıtı Hazırlanıyor ===")
+    console.log("Toplam kullanıcı sayısı:", users.length)
+
+    const response = {
+      success: true,
+      users,
+      timestamp: Date.now(),
+      debug: {
+        queryTime: new Date().toISOString(),
+        userCount: users.length,
+      },
     }
 
-    console.log("Veritabanı sonucu:", result)
-    console.log("Sonuç tipi:", typeof result)
-    console.log("Array mi?", Array.isArray(result))
-
-    // Neon'dan gelen sonuç zaten array formatında
-    const users = result.map((row) => ({
-      id: row.id,
-      email: row.email,
-      first_name: row.first_name,
-      last_name: row.last_name,
-      phone: row.phone,
-      created_at: row.created_at,
-      is_active: row.is_active,
-      total_orders: Number.parseInt(row.total_orders || "0"),
-      total_spent: Number.parseFloat(row.total_spent || "0"),
-    }))
-
-    console.log(`${users.length} kullanıcı formatlandı`)
-
-    return NextResponse.json(
-      {
-        success: true,
-        users,
-        timestamp: Date.now(), // Her seferinde farklı bir yanıt için
+    return NextResponse.json(response, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        Pragma: "no-cache",
+        Expires: "0",
+        "Surrogate-Control": "no-store",
+        "X-Timestamp": Date.now().toString(),
       },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-          "Surrogate-Control": "no-store",
-        },
-      },
-    )
+    })
   } catch (error) {
-    console.error("Admin users hatası:", error)
+    console.error("=== Admin users hatası ===")
+    console.error("Hata:", error)
     console.error("Hata stack:", error.stack)
     return NextResponse.json(
       {
