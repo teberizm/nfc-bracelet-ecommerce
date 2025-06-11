@@ -637,7 +637,7 @@ export async function updateNFCContent(
   }
 }
 
-// Admin specific functions
+// Admin specific functions - FIXED VERSION
 export async function getAllOrdersForAdmin(filters: {
   limit?: number
   offset?: number
@@ -647,59 +647,107 @@ export async function getAllOrdersForAdmin(filters: {
   sortOrder?: string
 }) {
   try {
+    console.log("getAllOrdersForAdmin çağrıldı:", filters)
+
     const { limit = 50, offset = 0, status, search, sortBy = "created_at", sortOrder = "desc" } = filters
 
-    const whereConditions = []
-    const queryParams = []
-
-    if (status) {
-      whereConditions.push(`o.status = $${queryParams.length + 1}`)
-      queryParams.push(status)
-    }
-
-    if (search) {
-      whereConditions.push(`(
-        o.order_number ILIKE $${queryParams.length + 1} OR 
-        u.first_name ILIKE $${queryParams.length + 1} OR 
-        u.last_name ILIKE $${queryParams.length + 1} OR 
-        u.email ILIKE $${queryParams.length + 1}
-      )`)
-      queryParams.push(`%${search}%`)
-    }
-
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : ""
-
-    queryParams.push(limit, offset)
-
-    const query = `
-      SELECT o.*, 
-             u.first_name, u.last_name, u.email as user_email, u.phone as user_phone,
-             COALESCE(
-               (SELECT json_agg(
-                 json_build_object(
-                   'id', oi.id,
-                   'product_id', oi.product_id,
-                   'product_name', oi.product_name,
-                   'product_image', oi.product_image,
-                   'quantity', oi.quantity,
-                   'unit_price', oi.unit_price,
-                   'total_price', oi.total_price,
-                   'nfc_enabled', oi.nfc_enabled
-                 ) ORDER BY oi.created_at
-               ) FROM order_items oi WHERE oi.order_id = o.id),
-               '[]'::json
-             ) as items
+    // Basit sorgu ile başlayalım
+    let query = `
+      SELECT 
+        o.id,
+        o.order_number,
+        o.user_id,
+        o.subtotal,
+        o.total_amount,
+        o.status,
+        o.created_at,
+        o.updated_at,
+        o.shipping_address,
+        o.billing_address,
+        o.payment_method,
+        u.first_name,
+        u.last_name,
+        u.email as user_email,
+        u.phone as user_phone
       FROM orders o
       JOIN users u ON o.user_id = u.id
-      ${whereClause}
-      ORDER BY o.${sortBy} ${sortOrder}
-      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `
 
-    const result = await sql.unsafe(query, ...queryParams)
-    return result
+    const conditions = []
+    const params = []
+
+    // Status filtresi
+    if (status && status !== "") {
+      conditions.push(`o.status = $${params.length + 1}`)
+      params.push(status)
+    }
+
+    // Search filtresi
+    if (search && search !== "") {
+      conditions.push(`(
+        o.order_number ILIKE $${params.length + 1} OR 
+        u.first_name ILIKE $${params.length + 1} OR 
+        u.last_name ILIKE $${params.length + 1} OR 
+        u.email ILIKE $${params.length + 1}
+      )`)
+      params.push(`%${search}%`)
+    }
+
+    // WHERE koşulları ekle
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(" AND ")}`
+    }
+
+    // Sıralama ekle
+    query += ` ORDER BY o.${sortBy} ${sortOrder}`
+
+    // Limit ve offset ekle
+    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
+    params.push(limit, offset)
+
+    console.log("SQL Query:", query)
+    console.log("Parameters:", params)
+
+    const orders = await sql.unsafe(query, ...params)
+
+    console.log(`${orders.length} sipariş bulundu`)
+
+    // Her sipariş için items'ları ayrı ayrı çek
+    const ordersWithItems = await Promise.all(
+      orders.map(async (order) => {
+        try {
+          const items = await sql`
+            SELECT 
+              id,
+              product_id,
+              product_name,
+              product_image,
+              quantity,
+              unit_price,
+              total_price,
+              nfc_enabled
+            FROM order_items 
+            WHERE order_id = ${order.id}
+            ORDER BY created_at
+          `
+
+          return {
+            ...order,
+            items: items || [],
+          }
+        } catch (error) {
+          console.error(`Error getting items for order ${order.id}:`, error)
+          return {
+            ...order,
+            items: [],
+          }
+        }
+      }),
+    )
+
+    return ordersWithItems
   } catch (error) {
-    console.error("Error getting all orders for admin:", error)
+    console.error("Error in getAllOrdersForAdmin:", error)
     throw error
   }
 }
