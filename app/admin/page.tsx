@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AdminDashboard() {
-  const { state } = useAdmin()
+  const { state, fetchAdminStats } = useAdmin()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
 
@@ -35,6 +35,9 @@ export default function AdminDashboard() {
       setIsLoading(false)
     }
   }, [state.isAuthenticated, state.isLoading, router])
+
+  console.log("Admin stats:", state.stats)
+  console.log("Admin authenticated:", state.isAuthenticated)
 
   if (state.isLoading || isLoading) {
     return <DashboardSkeleton />
@@ -78,9 +81,22 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-gray-600">Hoş geldin, {state.admin.name}!</p>
+      <div className="flex items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-gray-600">Hoş geldin, {state.admin.name}!</p>
+        </div>
+        <Button
+          onClick={() => {
+            console.log("Refreshing stats...")
+            fetchAdminStats?.()
+          }}
+          variant="outline"
+          size="sm"
+        >
+          <TrendingUp className="h-4 w-4 mr-2" />
+          Yenile
+        </Button>
       </div>
 
       {/* İstatistik Kartları */}

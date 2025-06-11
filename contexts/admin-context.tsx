@@ -22,6 +22,15 @@ export interface AdminStats {
   totalProducts: number
   activeNFCContent: number
   monthlyGrowth: number
+  themeUsage?: Array<{
+    theme_name: string
+    usage_count: number
+  }>
+  last7DaysOrders?: Array<{
+    order_date: string
+    order_count: number
+    daily_revenue: number
+  }>
 }
 
 interface AdminState {
@@ -114,7 +123,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
             })
 
             // Admin istatistiklerini yükle
-            fetchAdminStats()
+            await fetchAdminStats()
           } else {
             // Token geçersiz ise localStorage'dan temizle
             localStorage.removeItem("adminToken")
@@ -180,12 +189,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }
 
   const fetchAdminStats = async (): Promise<void> => {
-    if (!state.isAuthenticated) return
+    const token = localStorage.getItem("adminToken")
+    if (!token) return
 
     try {
-      const token = localStorage.getItem("adminToken")
-      if (!token) return
-
       const response = await fetch("/api/admin/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
