@@ -31,86 +31,60 @@ export async function GET(request: Request) {
 
     console.log("Kullanıcılar çekiliyor:", { search, sortBy, sortOrder, limit, offset })
 
-    // Neon SQL tagged template literal kullanarak sorgu
-    let result
+    // Build the base query
+    let baseQuery = `
+  SELECT 
+    u.id, 
+    u.email, 
+    u.first_name, 
+    u.last_name, 
+    u.phone, 
+    u.created_at, 
+    u.is_active,
+    COUNT(o.id) as total_orders,
+    COALESCE(SUM(o.total_amount), 0) as total_spent
+  FROM users u
+  LEFT JOIN orders o ON u.id = o.user_id
+`
 
+    // Add search condition if provided
     if (search) {
       console.log("Arama ile kullanıcılar çekiliyor:", search)
-      result = await sql`
-        SELECT 
-          u.id, 
-          u.email, 
-          u.first_name, 
-          u.last_name, 
-          u.phone, 
-          u.created_at, 
-          u.is_active,
-          COUNT(o.id) as total_orders,
-          COALESCE(SUM(o.total_amount), 0) as total_spent
-        FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id
-        WHERE (u.first_name ILIKE ${`%${search}%`} OR u.last_name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
-        GROUP BY u.id
-        ORDER BY u.${sql(sortBy)} ${sql.unsafe(sortOrder.toUpperCase())}
-        LIMIT ${limit} OFFSET ${offset}
-      `
+      baseQuery += ` WHERE (u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR u.email ILIKE $1)`
     } else {
       console.log("Tüm kullanıcılar çekiliyor")
-      if (sortBy === "created_at") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id
-          ORDER BY u.created_at DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else if (sortBy === "first_name") {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id
-          ORDER BY u.first_name ${sql.unsafe(sortOrder.toUpperCase())}
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      } else {
-        result = await sql`
-          SELECT 
-            u.id, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.phone, 
-            u.created_at, 
-            u.is_active,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent
-          FROM users u
-          LEFT JOIN orders o ON u.id = o.user_id
-          GROUP BY u.id
-          ORDER BY u.created_at DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `
-      }
+    }
+
+    baseQuery += ` GROUP BY u.id`
+
+    // Add sorting
+    let orderByClause = ""
+    switch (sortBy) {
+      case "created_at":
+        orderByClause = ` ORDER BY u.created_at ${sortOrder.toUpperCase()}`
+        break
+      case "first_name":
+        orderByClause = ` ORDER BY u.first_name ${sortOrder.toUpperCase()}`
+        break
+      case "total_spent":
+        orderByClause = ` ORDER BY total_spent ${sortOrder.toUpperCase()}`
+        break
+      case "total_orders":
+        orderByClause = ` ORDER BY total_orders ${sortOrder.toUpperCase()}`
+        break
+      default:
+        orderByClause = ` ORDER BY u.created_at DESC`
+    }
+
+    baseQuery += orderByClause
+    baseQuery += ` LIMIT $${search ? "2" : "1"} OFFSET $${search ? "3" : "2"}`
+
+    // Execute query with proper parameters
+    let result
+    if (search) {
+      result = await sql.unsafe(baseQuery, `%${search}%`, limit, offset)
+    } else {
+      result = await sql.unsafe(baseQuery, limit, offset)
     }
 
     console.log("Veritabanı sonucu:", result)
