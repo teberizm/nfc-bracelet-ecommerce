@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, type FormEvent, type ChangeEvent } from "react"
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Save, X, Plus, Upload, Video } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -58,12 +58,10 @@ interface NewProductData {
   video_360_url: string
 }
 
-const categories = [
-  { id: "c1b8c383-5676-4eca-8209-e1a7c42d5f6b", name: "NFC Bileklik" },
-  { id: "c2b8c383-5676-4eca-8209-e1a7c42d5f6c", name: "Akıllı Bileklik" },
-  { id: "c3b8c383-5676-4eca-8209-e1a7c42d5f6d", name: "Özel Tasarım" },
-  { id: "c4b8c383-5676-4eca-8209-e1a7c42d5f6e", name: "Aksesuar" },
-]
+interface Category {
+  id: string
+  name: string
+}
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -99,7 +97,23 @@ export default function NewProductPage() {
     images: [],
     video_360_url: "",
   })
+  const [categories, setCategories] = useState<Category[]>([])
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch('/api/admin/categories')
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setCategories(data)
+        }
+      } catch (err) {
+        console.error('Kategori yüklenirken hata:', err)
+      }
+    }
+    fetchCategories()
+  }, [])
+  
   // Slug oluşturma fonksiyonu
   const generateSlug = (name: string) => {
     return name
