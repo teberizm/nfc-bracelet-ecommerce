@@ -3,17 +3,17 @@
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
-  Label,
-  Input,
-  Textarea,
   Select,
   SelectTrigger,
   SelectContent,
   SelectItem,
   SelectValue,
-  Button,
-} from "@/components/ui";
+} from "@/components/ui/select";
 
 interface Category {
   id: string;
@@ -41,33 +41,23 @@ export default function NewProductPage() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load real categories from the Neon DB
   useEffect(() => {
     fetch("/api/admin/categories")
       .then((res) => {
         if (!res.ok) throw new Error("Kategori yüklenemedi");
         return res.json();
       })
-      .then((data: Category[]) => {
-        setCategories(data);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Kategoriler yüklenemedi");
-      })
+      .then((data: Category[]) => setCategories(data))
+      .catch(() => toast.error("Kategoriler yüklenemedi."))
       .finally(() => setLoadingCats(false));
   }, []);
 
-  // File upload helper
   async function uploadFile(file: File, folder: string): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("folder", folder);
 
-    const res = await fetch("/api/admin/upload", {
-      method: "POST",
-      body: formData,
-    });
+    const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
     if (!res.ok) throw new Error("Dosya yükleme hatası");
     const json = await res.json();
     return json.url as string;
@@ -78,10 +68,9 @@ export default function NewProductPage() {
     if (!file) return;
     try {
       const url = await uploadFile(file, "product-videos");
-      setProductData((p) => ({ ...p, video_360_url: url }));
+      setProductData((prev) => ({ ...prev, video_360_url: url }));
       toast.success("360° video yüklendi");
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Video yükleme hatası");
     }
   };
@@ -96,13 +85,12 @@ export default function NewProductPage() {
         body: JSON.stringify(productData),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Ürün kaydedilirken hata oluştu");
+        const errorRes = await res.json();
+        throw new Error(errorRes.message || "Ürün kaydedilirken hata oluştu");
       }
       toast.success("Ürün başarıyla kaydedildi");
       router.push("/admin/products");
     } catch (err: any) {
-      console.error(err);
       toast.error(err.message);
     } finally {
       setIsSaving(false);
@@ -120,7 +108,6 @@ export default function NewProductPage() {
           required
         />
       </div>
-
       <div>
         <Label htmlFor="price">Fiyat (₺) *</Label>
         <Input
@@ -132,7 +119,6 @@ export default function NewProductPage() {
           required
         />
       </div>
-
       <div>
         <Label htmlFor="description">Açıklama</Label>
         <Textarea
@@ -142,7 +128,6 @@ export default function NewProductPage() {
           onChange={(e) => setProductData((p) => ({ ...p, description: e.target.value }))}
         />
       </div>
-
       <div>
         <Label htmlFor="category_id">Kategori *</Label>
         <Select
@@ -162,7 +147,6 @@ export default function NewProductPage() {
           </SelectContent>
         </Select>
       </div>
-
       <div>
         <Label htmlFor="video360">360° Video</Label>
         <Input id="video360" type="file" accept="video/*" onChange={handleVideoChange} />
@@ -172,7 +156,6 @@ export default function NewProductPage() {
           </p>
         )}
       </div>
-
       <div className="pt-4">
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Kaydediliyor..." : "Ürünü Kaydet"}
