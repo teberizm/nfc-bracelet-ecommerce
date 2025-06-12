@@ -187,7 +187,7 @@ export default function ProductPage({ params }: ProductPageProps) {
         features: parseArrayField(data.features) || [],
         specifications: parseObjectField(data.specifications) || {},
         nfcFeatures: parseArrayField(data.nfc_features) || [],
-        video360: data.video_360 || null,
+        video360: data.video_360_url || data.video_360 || null,
         created_at: data.created_at,
       }
 
