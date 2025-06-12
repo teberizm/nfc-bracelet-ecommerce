@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getProducts } from "@/lib/products"
+import { getAllProducts } from "@/lib/database"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`API: Ürünler çekiliyor - limit: ${limit}, offset: ${offset}, featured: ${featured}`)
 
-    let products = await getProducts(limit, offset)
+    let products = await getAllProducts(limit, offset)
 
     // Eğer sadece öne çıkan ürünler isteniyorsa filtrele
     if (featured === "true") {
@@ -19,9 +19,31 @@ export async function GET(request: NextRequest) {
     }
 
     // Ürünleri normalize et
-    console.log(`API: ${products.length} ürün çekildi`)
+    const normalizedProducts = products.map((product) => ({
+      id: product.id,
+      name: product.name || "",
+      slug: product.slug || "",
+      price: Number(product.price) || 0,
+      originalPrice: product.original_price ? Number(product.original_price) : null,
+      image: product.primary_image || "/placeholder.svg?height=300&width=300",
+      primary_image: product.primary_image || "/placeholder.svg?height=300&width=300",
+      description: product.description || "",
+      nfc_enabled: Boolean(product.nfc_enabled),
+      nfcEnabled: Boolean(product.nfc_enabled),
+      stock: Number(product.stock) || 0,
+      featured: Boolean(product.featured),
+      category: product.category_name || "Genel",
+      category_name: product.category_name || "Genel",
+      categorySlug: product.category_slug || "genel",
+      rating: Number(product.rating) || 4.5,
+      reviewCount: Number(product.review_count) || 0,
+      review_count: Number(product.review_count) || 0,
+      created_at: product.created_at,
+    }))
 
-    return NextResponse.json(products)
+    console.log(`API: ${normalizedProducts.length} ürün başarıyla döndürüldü`)
+
+    return NextResponse.json(normalizedProducts)
   } catch (error) {
     console.error("API: Ürünler çekilirken hata:", error)
     return NextResponse.json({ error: "Ürünler yüklenirken bir hata oluştu" }, { status: 500 })
