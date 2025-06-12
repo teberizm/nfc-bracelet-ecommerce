@@ -59,7 +59,6 @@ interface NewProductData {
 }
 
 const categories = [
-  { id: null, name: "Kategori Seçin" },
   { id: "c1b8c383-5676-4eca-8209-e1a7c42d5f6b", name: "NFC Bileklik" },
   { id: "c2b8c383-5676-4eca-8209-e1a7c42d5f6c", name: "Akıllı Bileklik" },
   { id: "c3b8c383-5676-4eca-8209-e1a7c42d5f6d", name: "Özel Tasarım" },
@@ -565,15 +564,15 @@ export default function NewProductPage() {
                   <div className="space-y-2">
                     <Label htmlFor="category">Kategori</Label>
                     <Select
-                      value={productData.category_id || ""}
-                      onValueChange={(value) => setProductData({ ...productData, category_id: value || null })}
+                      value={productData.category_id || undefined}
+                      onValueChange={(value) => setProductData({ ...productData, category_id: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Kategori seçin" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category.id || "null"} value={category.id || ""}>
+                          <SelectItem key={category.id} value={category.id}>
                             {category.name}
                           </SelectItem>
                         ))}
