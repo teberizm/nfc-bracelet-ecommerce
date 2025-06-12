@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Users, Package, ShoppingCart, Zap, Palette, Settings, BarChart3, LogOut } from "lucide-react"
+import { Users, Package, ShoppingCart, Zap, Palette, Settings, BarChart3, LogOut, Wand2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useAdmin } from "@/contexts/admin-context"
@@ -38,6 +38,11 @@ export function AdminSidebar() {
       icon: ShoppingCart,
       href: "/admin/orders",
       badge: stats?.totalOrders ? stats.totalOrders.toString() : "0",
+    },
+    {
+      title: "Kendin Tasarla Siparişleri",
+      icon: Wand2,
+      href: "/admin/custom-design-orders",
     },
     {
       title: "NFC İçerik",
