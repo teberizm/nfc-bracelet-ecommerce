@@ -123,7 +123,12 @@ function normalizeProduct(product: any) {
       specifications: parseObjectField(product.specifications) || {},
 
       // Video 360
-      video360: product.video_360 || product.video360 || null,
+      video360:
+        product.video_360_url ||
+        product.video_360 ||
+        product.video360 ||
+        null,
+    }
     }
 
     console.log("✅ Ürün normalize edildi:", normalized.name)

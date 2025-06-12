@@ -28,7 +28,10 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
 
     console.log("✅ Ürün bulundu:", product.name)
     console.log("📸 Product images:", JSON.stringify(product.product_images, null, 2))
-    console.log("🎥 Video 360:", product.video_360)
+    console.log(
+      "🎥 Video 360:",
+      product.video_360_url || product.video_360 || "Yok"
+    )
 
     // Resim verilerini detaylı logla
     if (product.product_images && Array.isArray(product.product_images)) {
