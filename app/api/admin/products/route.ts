@@ -50,6 +50,9 @@ export async function POST(request: Request) {
     console.log("📦 Ürün verisi alındı:", productData.name)
     console.log("🎥 360° Video URL:", productData.video_360_url || "Yok")
 
+    // Gelen verileri logla
+    console.log("📊 Kategori ID:", productData.category_id, "Tipi:", typeof productData.category_id)
+
     // Zorunlu alanları kontrol et
     if (!productData.name) {
       return NextResponse.json(
@@ -81,6 +84,18 @@ export async function POST(request: Request) {
     const productId = uuidv4()
     console.log("🆔 Ürün ID:", productId)
 
+    // Kategori ID'sini NULL olarak ayarla eğer geçersizse
+    let categoryId = null
+    if (productData.category_id) {
+      // Eğer kategori ID'si sayı ise NULL olarak ayarla
+      if (!isNaN(Number(productData.category_id))) {
+        console.log("⚠️ Kategori ID sayı formatında, NULL olarak ayarlanıyor")
+        categoryId = null
+      } else {
+        categoryId = productData.category_id
+      }
+    }
+
     // Ana ürün kaydını oluştur - 360 VIDEO DAHİL
     try {
       await sql`
@@ -98,7 +113,7 @@ export async function POST(request: Request) {
           ${Number.parseFloat(productData.price) || 0}, 
           ${productData.original_price ? Number.parseFloat(productData.original_price) : null},
           ${Number.parseInt(productData.stock) || 0}, 
-          ${productData.category_id || null},
+          ${categoryId},
           ${Boolean(productData.nfc_enabled)}, 
           ${Boolean(productData.is_active)},
           ${productData.weight || ""},

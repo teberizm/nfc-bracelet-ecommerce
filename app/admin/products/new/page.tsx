@@ -43,7 +43,7 @@ interface NewProductData {
   price: number
   original_price: number | null
   stock: number
-  category_id: string
+  category_id: string | null
   nfc_enabled: boolean
   is_active: boolean
   weight: string
@@ -59,10 +59,11 @@ interface NewProductData {
 }
 
 const categories = [
-  { id: "1", name: "NFC Bileklik" },
-  { id: "2", name: "Akıllı Bileklik" },
-  { id: "3", name: "Özel Tasarım" },
-  { id: "4", name: "Aksesuar" },
+  { id: null, name: "Kategori Seçin" },
+  { id: "c1b8c383-5676-4eca-8209-e1a7c42d5f6b", name: "NFC Bileklik" },
+  { id: "c2b8c383-5676-4eca-8209-e1a7c42d5f6c", name: "Akıllı Bileklik" },
+  { id: "c3b8c383-5676-4eca-8209-e1a7c42d5f6d", name: "Özel Tasarım" },
+  { id: "c4b8c383-5676-4eca-8209-e1a7c42d5f6e", name: "Aksesuar" },
 ]
 
 export default function NewProductPage() {
@@ -85,7 +86,7 @@ export default function NewProductPage() {
     price: 0,
     original_price: null,
     stock: 0,
-    category_id: "",
+    category_id: null,
     nfc_enabled: false,
     is_active: true,
     weight: "",
@@ -330,7 +331,7 @@ export default function NewProductPage() {
   }
 
   // Tüm resimleri yükle
-  const uploadAllImages = async (): Promise<{ imageUrls: string[]; primaryImageUrl: string }> => {
+  const uploadAllImages = async (): Promise<{ imageUrls: any[]; primaryImageUrl: string }> => {
     try {
       setUploading(true)
 
@@ -347,6 +348,7 @@ export default function NewProductPage() {
           const url = await uploadFile(image.file)
           return {
             image_url: url,
+            url: url, // Alternatif alan adı
             is_primary: image.is_primary,
             alt_text: image.alt_text,
             sort_order: index,
@@ -358,12 +360,7 @@ export default function NewProductPage() {
       })
 
       const results = await Promise.all(uploadPromises)
-      const validResults = results.filter(Boolean) as {
-        image_url: string
-        is_primary: boolean
-        alt_text: string
-        sort_order: number
-      }[]
+      const validResults = results.filter(Boolean) as any[]
 
       const imageUrls = validResults.map((r) => r.image_url)
       const primaryImage = validResults.find((r) => r.is_primary)
@@ -443,6 +440,7 @@ export default function NewProductPage() {
 
       console.log("📦 Ürün kaydediliyor...")
       console.log("🎥 360° Video URL:", video360Url || "Yok")
+      console.log("📊 Kategori ID:", productPayload.category_id, "Tipi:", typeof productPayload.category_id)
 
       // 4. API'ye gönder
       const response = await fetch("/api/admin/products", {
@@ -567,15 +565,15 @@ export default function NewProductPage() {
                   <div className="space-y-2">
                     <Label htmlFor="category">Kategori</Label>
                     <Select
-                      value={productData.category_id}
-                      onValueChange={(value) => setProductData({ ...productData, category_id: value })}
+                      value={productData.category_id || ""}
+                      onValueChange={(value) => setProductData({ ...productData, category_id: value || null })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Kategori seçin" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
+                          <SelectItem key={category.id || "null"} value={category.id || ""}>
                             {category.name}
                           </SelectItem>
                         ))}
