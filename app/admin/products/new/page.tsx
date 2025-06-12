@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, X, Plus } from "lucide-react"
+import { ArrowLeft, Save, X, Plus, Upload, Video } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -43,7 +43,7 @@ interface NewProductData {
   price: number
   original_price: number | null
   stock: number
-  category_id: string
+  category_id: string | null
   nfc_enabled: boolean
   is_active: boolean
   weight: string
@@ -59,10 +59,10 @@ interface NewProductData {
 }
 
 const categories = [
-  { id: "1", name: "NFC Bileklik" },
-  { id: "2", name: "Akıllı Bileklik" },
-  { id: "3", name: "Özel Tasarım" },
-  { id: "4", name: "Aksesuar" },
+  { id: "c1b8c383-5676-4eca-8209-e1a7c42d5f6b", name: "NFC Bileklik" },
+  { id: "c2b8c383-5676-4eca-8209-e1a7c42d5f6c", name: "Akıllı Bileklik" },
+  { id: "c3b8c383-5676-4eca-8209-e1a7c42d5f6d", name: "Özel Tasarım" },
+  { id: "c4b8c383-5676-4eca-8209-e1a7c42d5f6e", name: "Aksesuar" },
 ]
 
 export default function NewProductPage() {
@@ -85,7 +85,7 @@ export default function NewProductPage() {
     price: 0,
     original_price: null,
     stock: 0,
-    category_id: "",
+    category_id: null,
     nfc_enabled: false,
     is_active: true,
     weight: "",
@@ -299,10 +299,10 @@ export default function NewProductPage() {
     })
   }
 
-  // Basit dosya yükleme fonksiyonu - MOCK
+  // Dosya yükleme fonksiyonu
   const uploadFile = async (file: File): Promise<string> => {
     try {
-      console.log("📤 Dosya yükleniyor (MOCK):", file.name)
+      console.log("📤 Dosya yükleniyor:", file.name, file.type)
 
       // Form data oluştur
       const formData = new FormData()
@@ -321,17 +321,16 @@ export default function NewProductPage() {
       }
 
       const data = await response.json()
-      console.log("✅ Dosya yüklendi (MOCK):", data.url)
+      console.log("✅ Dosya yüklendi:", data.url)
       return data.url
     } catch (error) {
       console.error("❌ Dosya yükleme hatası:", error)
-      // Hata durumunda placeholder döndür
-      return `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(file.name)}`
+      throw error
     }
   }
 
   // Tüm resimleri yükle
-  const uploadAllImages = async (): Promise<{ imageUrls: string[]; primaryImageUrl: string }> => {
+  const uploadAllImages = async (): Promise<{ imageUrls: any[]; primaryImageUrl: string }> => {
     try {
       setUploading(true)
 
@@ -347,34 +346,31 @@ export default function NewProductPage() {
         try {
           const url = await uploadFile(image.file)
           return {
-            url,
+            image_url: url,
+            url: url, // Alternatif alan adı
             is_primary: image.is_primary,
             alt_text: image.alt_text,
+            sort_order: index,
           }
         } catch (error) {
           console.error(`❌ Resim ${index + 1} yüklenemedi:`, error)
-          // Hata durumunda placeholder döndür
-          return {
-            url: `/placeholder.svg?height=400&width=400&text=Resim${index + 1}`,
-            is_primary: image.is_primary,
-            alt_text: image.alt_text,
-          }
+          throw error
         }
       })
 
       const results = await Promise.all(uploadPromises)
-      const validResults = results.filter(Boolean) as { url: string; is_primary: boolean; alt_text: string }[]
+      const validResults = results.filter(Boolean) as any[]
 
-      const imageUrls = validResults.map((r) => r.url)
+      const imageUrls = validResults.map((r) => r.image_url)
       const primaryImage = validResults.find((r) => r.is_primary)
 
       return {
-        imageUrls,
-        primaryImageUrl: primaryImage?.url || (imageUrls.length > 0 ? imageUrls[0] : ""),
+        imageUrls: validResults,
+        primaryImageUrl: primaryImage?.image_url || (imageUrls.length > 0 ? imageUrls[0] : ""),
       }
     } catch (error) {
       console.error("❌ Resim yükleme hatası:", error)
-      return { imageUrls: [], primaryImageUrl: "" }
+      throw error
     } finally {
       setUploading(false)
     }
@@ -386,19 +382,20 @@ export default function NewProductPage() {
 
     try {
       setVideo360Uploading(true)
-      console.log("🎥 360° video yükleniyor (MOCK)")
+      console.log("🎥 360° video yükleniyor...")
       const url = await uploadFile(video360File)
       setVideo360Url(url)
+      console.log("✅ 360° video yüklendi:", url)
       return url
     } catch (error) {
       console.error("❌ 360 video yükleme hatası:", error)
-      return `/placeholder.svg?height=300&width=400&text=360Video`
+      throw error
     } finally {
       setVideo360Uploading(false)
     }
   }
 
-  // Ürün kaydetme - RESİM OLMADAN TEST
+  // Ürün kaydetme - DOSYA YÜKLEME İLE
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
@@ -422,19 +419,29 @@ export default function NewProductPage() {
         return
       }
 
-      // Önce resim olmadan test edelim
-      console.log("🚀 Resim olmadan ürün kaydediliyor...")
+      // 1. Önce resimleri yükle
+      console.log("📸 Resimler yükleniyor...")
+      const { imageUrls } = await uploadAllImages()
 
-      // Ürün verilerini hazırla - RESİMSİZ
-      const productPayload = {
-        ...productData,
-        video_360_url: "",
-        images: [], // Geçici olarak boş
+      // 2. 360° video varsa yükle
+      let video360Url = ""
+      if (video360File) {
+        console.log("🎥 360° video yükleniyor...")
+        video360Url = await uploadVideo360()
       }
 
-      console.log("📦 Ürün kaydediliyor (resim olmadan)...")
+      // 3. Ürün verilerini hazırla
+      const productPayload = {
+        ...productData,
+        video_360_url: video360Url,
+        images: imageUrls,
+      }
 
-      // API'ye gönder
+      console.log("📦 Ürün kaydediliyor...")
+      console.log("🎥 360° Video URL:", video360Url || "Yok")
+      console.log("📊 Kategori ID:", productPayload.category_id, "Tipi:", typeof productPayload.category_id)
+
+      // 4. API'ye gönder
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: {
@@ -454,7 +461,7 @@ export default function NewProductPage() {
       const data = await response.json()
       console.log("✅ Ürün başarıyla kaydedildi:", data)
 
-      toast.success("Ürün başarıyla kaydedildi (resim olmadan test)")
+      toast.success("Ürün başarıyla kaydedildi!")
       router.push("/admin/products")
     } catch (error) {
       console.error("❌ Ürün kaydetme hatası:", error)
@@ -503,31 +510,22 @@ export default function NewProductPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Yeni Ürün Ekle</h1>
-            <p className="text-gray-500">Ürün bilgilerini doldurun ve kaydedin (Test Modu)</p>
+            <p className="text-gray-500">Ürün bilgilerini doldurun ve kaydedin</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handleSubmit} disabled={saving || uploading}>
+          <Button onClick={handleSubmit} disabled={saving || uploading || video360Uploading}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? "Kaydediliyor..." : "Kaydet (Test)"}
+            {saving ? "Kaydediliyor..." : "Kaydet"}
           </Button>
         </div>
-      </div>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
-          <span className="font-medium text-yellow-800">Test Modu</span>
-        </div>
-        <p className="text-yellow-700 text-sm mt-1">
-          Şu anda dosya yükleme olmadan test ediyoruz. Önce temel ürün ekleme işlemini test edelim.
-        </p>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="details">Temel Bilgiler</TabsTrigger>
+            <TabsTrigger value="media">Medya</TabsTrigger>
             <TabsTrigger value="features">Özellikler</TabsTrigger>
             <TabsTrigger value="inventory">Stok & Fiyat</TabsTrigger>
             <TabsTrigger value="seo">SEO</TabsTrigger>
@@ -566,7 +564,7 @@ export default function NewProductPage() {
                   <div className="space-y-2">
                     <Label htmlFor="category">Kategori</Label>
                     <Select
-                      value={productData.category_id}
+                      value={productData.category_id || undefined}
                       onValueChange={(value) => setProductData({ ...productData, category_id: value })}
                     >
                       <SelectTrigger>
@@ -670,6 +668,112 @@ export default function NewProductPage() {
                       placeholder="Ürünün detaylı açıklaması"
                     />
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="media" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ürün Resimleri</CardTitle>
+                  <CardDescription>En fazla 3 resim yükleyebilirsiniz</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Resim Yükle</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={productData.images.length >= 3}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Resim Seç
+                      </Button>
+                      <span className="text-sm text-gray-500">{productData.images.length}/3 resim yüklendi</span>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {productData.images.length > 0 && (
+                    <div className="space-y-4">
+                      {productData.images.map((image, index) => (
+                        <div key={index} className="border rounded-lg p-4">
+                          <div className="flex items-start gap-4">
+                            <img
+                              src={image.previewUrl || "/placeholder.svg"}
+                              alt={image.alt_text}
+                              className="w-20 h-20 object-cover rounded"
+                            />
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox checked={image.is_primary} onCheckedChange={() => setPrimaryImage(index)} />
+                                <Label className="text-sm">Ana Resim</Label>
+                              </div>
+                              <Input
+                                value={image.alt_text}
+                                onChange={(e) => updateImageAltText(index, e.target.value)}
+                                placeholder="Alt text"
+                                className="text-sm"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeImage(index)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>360° Video</CardTitle>
+                  <CardDescription>Ürün için 360 derece video yükleyin</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>360° Video Yükle</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => video360InputRef.current?.click()}
+                        disabled={video360Uploading}
+                      >
+                        <Video className="h-4 w-4 mr-2" />
+                        {video360Uploading ? "Yükleniyor..." : "Video Seç"}
+                      </Button>
+                      {video360File && <span className="text-sm text-green-600">✅ {video360File.name}</span>}
+                    </div>
+                    <input
+                      ref={video360InputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideo360Upload}
+                      className="hidden"
+                    />
+                  </div>
+
+                  <Video360Preview />
                 </CardContent>
               </Card>
             </div>
