@@ -138,44 +138,13 @@ export default function ProductPage({ params }: ProductPageProps) {
         return
       }
 
-      // Resim verilerini işle
-      let images = []
-      let primaryImage = "/placeholder.svg?height=600&width=600"
-
-      // product_images array'ini kontrol et
-      if (data.product_images && Array.isArray(data.product_images) && data.product_images.length > 0) {
-        console.log("Product images bulundu:", data.product_images)
-
-        // Tüm resimleri al
-        images = data.product_images.filter((img) => img && img.image_url).map((img) => img.image_url)
-
-        // Ana resmi bul (is_primary = true olan)
-        const primaryImg = data.product_images.find((img) => img.is_primary === true)
-        if (primaryImg && primaryImg.image_url) {
-          primaryImage = primaryImg.image_url
-          console.log("Ana resim bulundu:", primaryImage)
-        } else if (images.length > 0) {
-          primaryImage = images[0]
-          console.log("İlk resim ana resim olarak kullanılıyor:", primaryImage)
-        }
-      }
-      // Fallback: eski primary_image field'ını kontrol et
-      else if (data.primary_image) {
-        primaryImage = data.primary_image
-        images = [data.primary_image]
-        console.log("Primary image field'ından resim alındı:", primaryImage)
-      }
-
-      console.log("Final images array:", images)
-      console.log("Final primary image:", primaryImage)
-
       // Ürün verisini normalize et
       const normalizedProduct: Product = {
         id: data.id,
         name: data.name || "İsimsiz Ürün",
         price: Number(data.price) || 0,
         originalPrice: data.original_price ? Number(data.original_price) : undefined,
-        image: primaryImage, // Ana resim
+        image: data.primary_image || "/placeholder.svg?height=600&width=600",
         description: data.description || "Açıklama bulunmuyor.",
         nfcEnabled: Boolean(data.nfc_enabled),
         stock: Number(data.stock) || 0,
@@ -183,7 +152,7 @@ export default function ProductPage({ params }: ProductPageProps) {
         rating: Number(data.rating) || 4.5,
         reviewCount: Number(data.review_count) || 0,
         featured: Boolean(data.featured),
-        images: images.length > 0 ? images : [primaryImage], // Resim dizisi
+        images: parseArrayField(data.images) || [data.primary_image || "/placeholder.svg?height=600&width=600"],
         features: parseArrayField(data.features) || [],
         specifications: parseObjectField(data.specifications) || {},
         nfcFeatures: parseArrayField(data.nfc_features) || [],
@@ -192,15 +161,14 @@ export default function ProductPage({ params }: ProductPageProps) {
       }
 
       setProduct(normalizedProduct)
-      console.log("✅ Ürün başarıyla yüklendi:", normalizedProduct.name)
-      console.log("✅ Resimler:", normalizedProduct.images)
+      console.log("Ürün detay sayfası: Ürün başarıyla yüklendi:", normalizedProduct.name)
 
       // İlgili ürünleri çek
       if (data.category_slug) {
         await fetchRelatedProducts(data.category_slug)
       }
     } catch (error) {
-      console.error("❌ Ürün detay sayfası: Ürün yüklenirken hata:", error)
+      console.error("Ürün detay sayfası: Ürün yüklenirken hata:", error)
       setError(error instanceof Error ? error.message : "Ürün bilgileri yüklenirken bir hata oluştu.")
     } finally {
       setLoading(false)

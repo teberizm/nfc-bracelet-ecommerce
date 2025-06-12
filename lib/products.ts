@@ -9,7 +9,7 @@ export async function getProducts(limit = 50, offset = 0) {
     console.log("Veritabanından ürünler çekiliyor...")
     const products = await getProductsFromDB(limit, offset)
     console.log(`✅ ${products.length} ürün başarıyla çekildi`)
-    return products.map((product) => normalizeProduct(product))
+    return products
   } catch (error) {
     console.error("❌ Veritabanından ürünler çekilirken hata:", error)
     throw error
@@ -58,40 +58,6 @@ export async function getProductById(id: string) {
 function normalizeProduct(product: any) {
   try {
     console.log("Ürün normalize ediliyor:", product.name)
-    console.log("Ham ürün verisi:", product)
-
-    // Resim verilerini parse et
-    let images = []
-    let primaryImage = "/placeholder.svg?height=300&width=300"
-
-    // Eğer product_images varsa (JOIN ile gelen veri)
-    if (product.product_images && Array.isArray(product.product_images)) {
-      images = product.product_images.filter((img) => img && img.image_url).map((img) => img.image_url)
-
-      // Ana resmi bul
-      const primaryImg = product.product_images.find((img) => img.is_primary)
-      if (primaryImg) {
-        primaryImage = primaryImg.image_url
-      } else if (images.length > 0) {
-        primaryImage = images[0]
-      }
-    }
-    // Eğer images field'ı varsa (JSON olarak)
-    else if (product.images) {
-      const parsedImages = parseArrayField(product.images)
-      if (parsedImages && parsedImages.length > 0) {
-        images = parsedImages
-        primaryImage = parsedImages[0]
-      }
-    }
-    // primary_image field'ı varsa
-    else if (product.primary_image) {
-      primaryImage = product.primary_image
-      images = [product.primary_image]
-    }
-
-    console.log("Parse edilen resimler:", images)
-    console.log("Ana resim:", primaryImage)
 
     const normalized = {
       id: product.id,
@@ -99,8 +65,7 @@ function normalizeProduct(product: any) {
       slug: product.slug || "",
       price: Number(product.price) || 0,
       originalPrice: product.original_price ? Number(product.original_price) : null,
-      image: primaryImage, // Ana resim
-      primary_image: primaryImage,
+      primary_image: product.primary_image || "/placeholder.svg?height=300&width=300",
       description: product.description || "",
       nfc_enabled: Boolean(product.nfc_enabled),
       nfcEnabled: Boolean(product.nfc_enabled),
@@ -114,12 +79,12 @@ function normalizeProduct(product: any) {
       review_count: Number(product.review_count) || 0,
       created_at: product.created_at,
 
-      // Resim dizisi
-      images: images.length > 0 ? images : [primaryImage],
-
-      // Diğer alanlar
+      // Diziler için güvenli parsing
+      images: parseArrayField(product.images) || [product.primary_image || "/placeholder.svg?height=600&width=600"],
       features: parseArrayField(product.features) || [],
       nfcFeatures: parseArrayField(product.nfc_features) || [],
+
+      // Specifications için güvenli parsing
       specifications: parseObjectField(product.specifications) || {},
 
       // Video 360
@@ -127,9 +92,6 @@ function normalizeProduct(product: any) {
     }
 
     console.log("✅ Ürün normalize edildi:", normalized.name)
-    console.log("Final resimler:", normalized.images)
-    console.log("Final ana resim:", normalized.image)
-
     return normalized
   } catch (error) {
     console.error("❌ Ürün normalize edilirken hata:", error)
@@ -213,7 +175,7 @@ export async function getRelatedProducts(productId: string, categorySlug: string
 
     console.log(`✅ ${related.length} ilgili ürün bulundu`)
 
-    return related
+    return related.map((product) => normalizeProduct(product))
   } catch (error) {
     console.error("❌ İlgili ürünler çekilirken hata:", error)
     // İlgili ürünler çekilemezse boş array döndür, hata fırlatma
