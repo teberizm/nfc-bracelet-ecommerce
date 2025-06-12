@@ -54,6 +54,96 @@ export async function getUserById(id: string) {
     throw error
   }
 }
+export async function createCustomDesignOrder(orderData: {
+  user_id: string
+  product_type: string
+  material: string
+  description: string
+  image_url: string
+  price?: number | null
+}) {
+  try {
+    const result = await sql`
+      INSERT INTO custom_design_orders (
+        user_id, product_type, material, description, image_url, price
+      )
+      VALUES (
+        ${orderData.user_id},
+        ${orderData.product_type},
+        ${orderData.material},
+        ${orderData.description},
+        ${orderData.image_url},
+        ${orderData.price}
+      )
+      RETURNING *
+    `
+    return result[0]
+  } catch (error) {
+    console.error("Error creating custom design order:", error)
+    throw error
+  }
+}
+
+export async function getCustomDesignOrdersByUserId(userId: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM custom_design_orders
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+    `
+    return result
+  } catch (error) {
+    console.error("Error getting custom design orders by user id:", error)
+    throw error
+  }
+}
+
+export async function updateCustomDesignOrder(
+  id: string,
+  updates: {
+    status?: string
+    payment_status?: string
+    price?: number | null
+  },
+) {
+  try {
+    const fields = []
+    const values: any[] = []
+
+    if (updates.status) {
+      fields.push(`status = $${fields.length + 1}`)
+      values.push(updates.status)
+    }
+    if (updates.payment_status) {
+      fields.push(`payment_status = $${fields.length + 1}`)
+      values.push(updates.payment_status)
+    }
+    if (typeof updates.price !== 'undefined') {
+      fields.push(`price = $${fields.length + 1}`)
+      values.push(updates.price)
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No updates provided')
+    }
+
+    fields.push(`updated_at = CURRENT_TIMESTAMP`)
+    values.push(id)
+
+    const query = `
+      UPDATE custom_design_orders
+      SET ${fields.join(', ')}
+      WHERE id = $${values.length}
+      RETURNING *
+    `
+
+    const result = await sql.unsafe(query, ...values)
+    return result[0]
+  } catch (error) {
+    console.error('Error updating custom design order:', error)
+    throw error
+  }
+}
 
 export async function createUser(userData: {
   email: string

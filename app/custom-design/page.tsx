@@ -108,14 +108,48 @@ export default function CustomDesignPage() {
 
     // Normalde burada bir API çağrısı yapılır
     // Şimdilik simüle ediyoruz
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem("authToken")
+      if (!token) throw new Error("Unauthorized")
+
+      const form = new FormData()
+      form.append("productType", formData.productType)
+      form.append("material", formData.material)
+      form.append("description", formData.description)
+      if (formData.file) {
+        form.append("file", formData.file)
+      }
+
+      const res = await fetch("/api/custom-design-orders", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        toast({
+          title: "Tasarım Talebiniz Alındı!",
+          description: "Ekibimiz en kısa sürede size özel teklifle dönüş yapacaktır.",
+        })
+        router.push("/profile")
+      } else {
+        throw new Error(data.message || "İstek başarısız")
+      }
+    } catch (err) {
+      console.error("Custom design request error", err)
       toast({
-        title: "Tasarım Talebiniz Alındı!",
-        description: "Ekibimiz en kısa sürede size özel teklifle dönüş yapacaktır.",
+        title: "Hata",
+        description: "Tasarım talebiniz gönderilemedi.",
+        variant: "destructive",
+      })
+    } finally {
       })
       setIsSubmitting(false)
-      router.push("/profile")
-    }, 1500)
+    }
   }
 
   return (
