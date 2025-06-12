@@ -27,4 +27,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Ürünler yüklenirken bir hata oluştu" }, { status: 500 })
   }
 }
- 
