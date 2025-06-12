@@ -18,6 +18,8 @@ export default function CustomDesignPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [categories, setCategories] = useState<any[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [formData, setFormData] = useState({
     productType: "",
     material: "",
@@ -28,6 +30,22 @@ export default function CustomDesignPage() {
   // Client-side mounting kontrolü
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/categories")
+        if (!res.ok) throw new Error("Failed to fetch")
+        const data = await res.json()
+        setCategories(data)
+      } catch (err) {
+        console.error("Kategori çekme hatası", err)
+      } finally {
+        setCategoriesLoading(false)
+      }
+    }
+    fetchCategories()
   }, [])
 
   // Kullanıcı giriş kontrolü - sadece client-side'da
@@ -164,11 +182,17 @@ export default function CustomDesignPage() {
                       <SelectValue placeholder="Ürün tipi seçin" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bracelet">Bileklik</SelectItem>
-                      <SelectItem value="necklace">Kolye</SelectItem>
-                      <SelectItem value="ring">Yüzük</SelectItem>
-                      <SelectItem value="earring">Küpe</SelectItem>
-                      <SelectItem value="other">Diğer</SelectItem>
+                       {categoriesLoading ? (
+                        <SelectItem value="" disabled>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Yükleniyor...
+                        </SelectItem>
+                      ) : (
+                        categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
