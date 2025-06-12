@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split(".").pop() || ""
     const fileName = `custom-designs/${uuidv4()}.${ext}`
     const blob = await put(fileName, file, { access: "public", addRandomSuffix: false })
-
+    const id = uuidv4()
     const order = await createCustomDesignOrder({
+      id,
       user_id: decoded.userId,
       product_type: productType,
       material,

@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless"
+import { v4 as uuidv4 } from "uuid"
 
 // Check if DATABASE_URL is set
 if (!process.env.DATABASE_URL) {
@@ -55,6 +56,7 @@ export async function getUserById(id: string) {
   }
 }
 export async function createCustomDesignOrder(orderData: {
+  id?: string
   user_id: string
   product_type: string
   material: string
@@ -63,11 +65,19 @@ export async function createCustomDesignOrder(orderData: {
   price?: number | null
 }) {
   try {
+    const id = orderData.id ?? uuidv4()
     const result = await sql`
       INSERT INTO custom_design_orders (
-        user_id, product_type, material, description, image_url, price
+          id,
+        user_id,
+        product_type,
+        material,
+        description,
+        image_url,
+        price
       )
       VALUES (
+         ${id},
         ${orderData.user_id},
         ${orderData.product_type},
         ${orderData.material},
