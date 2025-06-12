@@ -140,16 +140,15 @@ export default function CustomDesignPage() {
         throw new Error(data.message || "İstek başarısız")
       }
     } catch (err) {
-      console.error("Custom design request error", err)
-      toast({
-        title: "Hata",
-        description: "Tasarım talebiniz gönderilemedi.",
-        variant: "destructive",
-      })
-    } finally {
-      })
-      setIsSubmitting(false)
-    }
+  console.error("Custom design request error", err)
+  toast({
+    title: "Hata",
+    description: "Tasarım talebiniz gönderilemedi.",
+    variant: "destructive",
+  })
+} finally {
+  setIsSubmitting(false)
+}
   }
 
   return (
