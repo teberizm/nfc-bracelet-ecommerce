@@ -104,8 +104,13 @@ export async function getAdminById(id: string) {
 export async function getAllProducts(limit = 50, offset = 0) {
   try {
     const result = await sql`
-      SELECT 
+      SELECT
         p.*,
+        (SELECT pi.image_url
+           FROM product_images pi
+           WHERE pi.product_id = p.id AND pi.is_primary = true
+           ORDER BY pi.sort_order
+           LIMIT 1) AS primary_image,
         COALESCE(
           (SELECT json_agg(
             json_build_object(
@@ -114,10 +119,10 @@ export async function getAllProducts(limit = 50, offset = 0) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
-          ) FROM product_images pi WHERE pi.product_id = p.id),
+             ) ORDER BY pi.sort_order, pi.id)
+          FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as product_images
+        ) AS product_images
       FROM products p
       WHERE p.is_active = true
       ORDER BY p.created_at DESC
