@@ -1,91 +1,54 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-const sql = neon(process.env.DATABASE_URL!)
+import { getProductById, getProductBySlug } from "@/lib/database"
 
 export async function GET(request: NextRequest, { params }: { params: { slug: string } }) {
   try {
-    const { slug } = params
+    console.log(`🔍 Ürün API çağrısı: ${params.slug}`)
 
-    console.log(`API: Ürün detayı isteniyor (slug: ${slug})`)
-
-    // Önce ID ile dene
-    let product
-    try {
-      const productById = await sql`
-        SELECT 
-          p.*,
-          c.name as category_name,
-          c.slug as category_slug
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.id = ${slug}
-      `
-
-      if (productById.length > 0) {
-        product = productById[0]
-      }
-    } catch (error) {
-      console.log("ID ile arama başarısız, slug ile deneniyor...")
+    if (!params.slug) {
+      console.log("❌ Slug parametresi eksik")
+      return NextResponse.json({ error: "Ürün ID'si gerekli" }, { status: 400 })
     }
 
-    // ID ile bulunamazsa slug ile dene
-    if (!product) {
-      try {
-        const productBySlug = await sql`
-          SELECT 
-            p.*,
-            c.name as category_name,
-            c.slug as category_slug
-          FROM products p
-          LEFT JOIN categories c ON p.category_id = c.id
-          WHERE p.slug = ${slug}
-        `
+    let product = null
 
-        if (productBySlug.length > 0) {
-          product = productBySlug[0]
-        }
-      } catch (error) {
-        console.log("Slug ile arama da başarısız...")
-      }
+    // Önce ID ile dene (UUID formatında ise)
+    if (params.slug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      console.log("🔍 UUID formatında ID ile aranıyor...")
+      product = await getProductById(params.slug)
+    } else {
+      console.log("🔍 Slug ile aranıyor...")
+      product = await getProductBySlug(params.slug)
     }
 
     if (!product) {
-      console.log(`Ürün bulunamadı: ${slug}`)
+      console.log(`❌ Ürün bulunamadı: ${params.slug}`)
       return NextResponse.json({ error: "Ürün bulunamadı" }, { status: 404 })
     }
 
-    console.log(`Ürün bulundu: ${product.name}`)
+    console.log("✅ Ürün bulundu:", product.name)
+    console.log("📸 Product images:", JSON.stringify(product.product_images, null, 2))
+    console.log("🎥 Video 360:", product.video_360)
 
-    // Ürün verisini normalize et
-    const normalizedProduct = {
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      description: product.description,
-      price: Number.parseFloat(product.price),
-      original_price: product.original_price ? Number.parseFloat(product.original_price) : null,
-      primary_image: product.primary_image || "/placeholder.svg?height=600&width=600",
-      images: product.images,
-      category_id: product.category_id,
-      category_name: product.category_name || "Genel",
-      category_slug: product.category_slug,
-      nfc_enabled: Boolean(product.nfc_enabled),
-      stock: Number.parseInt(product.stock) || 0,
-      featured: Boolean(product.featured),
-      rating: Number.parseFloat(product.rating) || 4.5,
-      review_count: Number.parseInt(product.review_count) || 0,
-      features: product.features,
-      specifications: product.specifications,
-      nfc_features: product.nfc_features,
-      video_360: product.video_360,
-      created_at: product.created_at,
-      updated_at: product.updated_at,
+    // Resim verilerini detaylı logla
+    if (product.product_images && Array.isArray(product.product_images)) {
+      console.log(`📸 Toplam ${product.product_images.length} resim bulundu:`)
+      product.product_images.forEach((img, index) => {
+        console.log(`  ${index + 1}. Resim:`, {
+          id: img.id,
+          url: img.image_url,
+          is_primary: img.is_primary,
+          sort_order: img.sort_order,
+        })
+      })
     }
 
-    return NextResponse.json(normalizedProduct)
+    // Response'u logla
+    console.log("📤 API Response gönderiliyor...")
+
+    return NextResponse.json(product)
   } catch (error) {
-    console.error("Ürün detayı API hatası:", error)
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 })
+    console.error("❌ Ürün API hatası:", error)
+    return NextResponse.json({ error: "Ürün bilgileri alınırken bir hata oluştu" }, { status: 500 })
   }
 }

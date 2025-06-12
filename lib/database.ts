@@ -100,7 +100,7 @@ export async function getAdminById(id: string) {
   }
 }
 
-// Product functions with better error handling
+// Product functions with better error handling and image support
 export async function getAllProducts(limit = 50, offset = 0) {
   try {
     const result = await sql`
@@ -114,32 +114,10 @@ export async function getAllProducts(limit = 50, offset = 0) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', pf.id,
-              'feature_name', pf.feature_name,
-              'feature_value', pf.feature_value,
-              'sort_order', pf.sort_order
-            ) ORDER BY pf.sort_order, pf.id
-          ) FROM product_features pf WHERE pf.product_id = p.id),
-          '[]'::json
-        ) as features,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ps.id,
-              'spec_name', ps.spec_name,
-              'spec_value', ps.spec_value,
-              'sort_order', ps.sort_order
-            ) ORDER BY ps.sort_order, ps.id
-          ) FROM product_specifications ps WHERE ps.product_id = p.id),
-          '[]'::json
-        ) as specifications
+        ) as product_images
       FROM products p
       WHERE p.is_active = true
       ORDER BY p.created_at DESC
@@ -154,6 +132,8 @@ export async function getAllProducts(limit = 50, offset = 0) {
 
 export async function getProductBySlug(slug: string) {
   try {
+    console.log(`🔍 Database: Slug ile ürün aranıyor: ${slug}`)
+
     const result = await sql`
       SELECT 
         p.*,
@@ -165,37 +145,26 @@ export async function getProductBySlug(slug: string) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', pf.id,
-              'feature_name', pf.feature_name,
-              'feature_value', pf.feature_value,
-              'sort_order', pf.sort_order
-            ) ORDER BY pf.sort_order, pf.id
-          ) FROM product_features pf WHERE pf.product_id = p.id),
-          '[]'::json
-        ) as features,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ps.id,
-              'spec_name', ps.spec_name,
-              'spec_value', ps.spec_value,
-              'sort_order', ps.sort_order
-            ) ORDER BY ps.sort_order, ps.id
-          ) FROM product_specifications ps WHERE ps.product_id = p.id),
-          '[]'::json
-        ) as specifications
+        ) as product_images
       FROM products p
       WHERE p.slug = ${slug} AND p.is_active = true
       LIMIT 1
     `
-    return result[0] || null
+
+    const product = result[0] || null
+
+    if (product) {
+      console.log(`✅ Database: Ürün bulundu: ${product.name}`)
+      console.log(`📸 Database: ${product.product_images?.length || 0} resim bulundu`)
+      console.log(`🎥 Database: Video 360: ${product.video_360 ? "Var" : "Yok"}`)
+    } else {
+      console.log(`❌ Database: Ürün bulunamadı: ${slug}`)
+    }
+
+    return product
   } catch (error) {
     console.error("Error getting product by slug:", error)
     throw error
@@ -204,6 +173,8 @@ export async function getProductBySlug(slug: string) {
 
 export async function getProductById(id: string) {
   try {
+    console.log(`🔍 Database: ID ile ürün aranıyor: ${id}`)
+
     const result = await sql`
       SELECT 
         p.*,
@@ -215,37 +186,38 @@ export async function getProductById(id: string) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', pf.id,
-              'feature_name', pf.feature_name,
-              'feature_value', pf.feature_value,
-              'sort_order', pf.sort_order
-            ) ORDER BY pf.sort_order, pf.id
-          ) FROM product_features pf WHERE pf.product_id = p.id),
-          '[]'::json
-        ) as features,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ps.id,
-              'spec_name', ps.spec_name,
-              'spec_value', ps.spec_value,
-              'sort_order', ps.sort_order
-            ) ORDER BY ps.sort_order, ps.id
-          ) FROM product_specifications ps WHERE ps.product_id = p.id),
-          '[]'::json
-        ) as specifications
+        ) as product_images
       FROM products p
       WHERE p.id = ${id} AND p.is_active = true
       LIMIT 1
     `
-    return result[0] || null
+
+    const product = result[0] || null
+
+    if (product) {
+      console.log(`✅ Database: Ürün bulundu: ${product.name}`)
+      console.log(`📸 Database: ${product.product_images?.length || 0} resim bulundu`)
+      console.log(`🎥 Database: Video 360: ${product.video_360 ? "Var" : "Yok"}`)
+
+      // Resim detaylarını logla
+      if (product.product_images && Array.isArray(product.product_images)) {
+        product.product_images.forEach((img, index) => {
+          console.log(`  📸 ${index + 1}. Resim:`, {
+            id: img.id,
+            url: img.image_url?.substring(0, 50) + "...",
+            is_primary: img.is_primary,
+            sort_order: img.sort_order,
+          })
+        })
+      }
+    } else {
+      console.log(`❌ Database: Ürün bulunamadı: ${id}`)
+    }
+
+    return product
   } catch (error) {
     console.error("Error getting product by id:", error)
     throw error
@@ -266,10 +238,10 @@ export async function getProductsByCategory(categoryId: string, limit = 20, offs
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
-        ) as images
+        ) as product_images
       FROM products p
       WHERE p.category_id = ${categoryId} AND p.is_active = true
       ORDER BY p.created_at DESC
