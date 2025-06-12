@@ -11,8 +11,6 @@ export function AdminSidebar() {
   const pathname = usePathname()
   const { logoutAdmin, stats } = useAdmin()
 
-  console.log("🔍 Sidebar stats:", stats) // Debug için
-
   // Menü öğelerini stats verisiyle güncelle
   const menuItems = [
     {
@@ -25,25 +23,25 @@ export function AdminSidebar() {
       title: "Kullanıcılar",
       icon: Users,
       href: "/admin/users",
-      badge: stats?.totalUsers ? stats.totalUsers.toString() : "0",
+      badge: stats?.totalUsers?.toString() || "0",
     },
     {
       title: "Ürünler",
       icon: Package,
       href: "/admin/products",
-      badge: stats?.totalProducts ? stats.totalProducts.toString() : "0",
+      badge: stats?.totalProducts?.toString() || "0",
     },
     {
       title: "Siparişler",
       icon: ShoppingCart,
       href: "/admin/orders",
-      badge: stats?.totalOrders ? stats.totalOrders.toString() : "0",
+      badge: stats?.totalOrders?.toString() || "0",
     },
     {
       title: "NFC İçerik",
       icon: Zap,
       href: "/admin/nfc-content",
-      badge: stats?.activeNFCContent ? stats.activeNFCContent.toString() : "0",
+      badge: stats?.activeNFCContent?.toString() || "0",
     },
     {
       title: "Temalar",

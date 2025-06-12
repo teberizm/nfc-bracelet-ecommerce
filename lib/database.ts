@@ -114,7 +114,7 @@ export async function getAllProducts(limit = 50, offset = 0) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
         ) as product_images
@@ -132,6 +132,8 @@ export async function getAllProducts(limit = 50, offset = 0) {
 
 export async function getProductBySlug(slug: string) {
   try {
+    console.log(`🔍 Database: Slug ile ürün aranıyor: ${slug}`)
+
     const result = await sql`
       SELECT 
         p.*,
@@ -143,7 +145,7 @@ export async function getProductBySlug(slug: string) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
         ) as product_images
@@ -151,7 +153,18 @@ export async function getProductBySlug(slug: string) {
       WHERE p.slug = ${slug} AND p.is_active = true
       LIMIT 1
     `
-    return result[0] || null
+
+    const product = result[0] || null
+
+    if (product) {
+      console.log(`✅ Database: Ürün bulundu: ${product.name}`)
+      console.log(`📸 Database: ${product.product_images?.length || 0} resim bulundu`)
+      console.log(`🎥 Database: Video 360: ${product.video_360 ? "Var" : "Yok"}`)
+    } else {
+      console.log(`❌ Database: Ürün bulunamadı: ${slug}`)
+    }
+
+    return product
   } catch (error) {
     console.error("Error getting product by slug:", error)
     throw error
@@ -160,6 +173,8 @@ export async function getProductBySlug(slug: string) {
 
 export async function getProductById(id: string) {
   try {
+    console.log(`🔍 Database: ID ile ürün aranıyor: ${id}`)
+
     const result = await sql`
       SELECT 
         p.*,
@@ -171,7 +186,7 @@ export async function getProductById(id: string) {
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
         ) as product_images
@@ -179,7 +194,30 @@ export async function getProductById(id: string) {
       WHERE p.id = ${id} AND p.is_active = true
       LIMIT 1
     `
-    return result[0] || null
+
+    const product = result[0] || null
+
+    if (product) {
+      console.log(`✅ Database: Ürün bulundu: ${product.name}`)
+      console.log(`📸 Database: ${product.product_images?.length || 0} resim bulundu`)
+      console.log(`🎥 Database: Video 360: ${product.video_360 ? "Var" : "Yok"}`)
+
+      // Resim detaylarını logla
+      if (product.product_images && Array.isArray(product.product_images)) {
+        product.product_images.forEach((img, index) => {
+          console.log(`  📸 ${index + 1}. Resim:`, {
+            id: img.id,
+            url: img.image_url?.substring(0, 50) + "...",
+            is_primary: img.is_primary,
+            sort_order: img.sort_order,
+          })
+        })
+      }
+    } else {
+      console.log(`❌ Database: Ürün bulunamadı: ${id}`)
+    }
+
+    return product
   } catch (error) {
     console.error("Error getting product by id:", error)
     throw error
@@ -200,7 +238,7 @@ export async function getProductsByCategory(categoryId: string, limit = 20, offs
               'alt_text', pi.alt_text,
               'sort_order', pi.sort_order,
               'is_primary', pi.is_primary
-            ) ORDER BY pi.sort_order, pi.id
+            ) ORDER BY pi.is_primary DESC, pi.sort_order, pi.id
           ) FROM product_images pi WHERE pi.product_id = p.id),
           '[]'::json
         ) as product_images

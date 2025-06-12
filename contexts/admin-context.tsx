@@ -52,7 +52,6 @@ const AdminContext = createContext<{
   loginAdmin: (email: string, password: string) => Promise<boolean>
   logoutAdmin: () => void
   fetchAdminStats: () => Promise<void>
-  stats: AdminStats | null
 } | null>(null)
 
 function adminReducer(state: AdminState, action: AdminAction): AdminState {
@@ -194,8 +193,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (!token) return
 
     try {
-      console.log("📊 Admin istatistikleri çekiliyor...")
-
       const response = await fetch("/api/admin/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -203,16 +200,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       })
 
       const data = await response.json()
-      console.log("📊 Admin stats API response:", data)
 
       if (data.success && data.stats) {
-        console.log("✅ Admin stats başarıyla yüklendi:", data.stats)
         dispatch({ type: "SET_STATS", payload: data.stats })
-      } else {
-        console.error("❌ Admin stats yüklenemedi:", data)
       }
     } catch (error) {
-      console.error("❌ Fetch admin stats error:", error)
+      console.error("Fetch admin stats error:", error)
     }
   }
 
@@ -229,7 +222,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         loginAdmin,
         logoutAdmin,
         fetchAdminStats,
-        stats: state.stats, // stats'ı direkt olarak expose et
       }}
     >
       {children}
