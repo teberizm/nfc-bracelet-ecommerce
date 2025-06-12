@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Upload, X, Plus, Trash2, RefreshCw, EyeIcon as Eye360 } from "lucide-react"
+import { ArrowLeft, Save, X, Plus, Upload, Video } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -299,25 +299,17 @@ export default function NewProductPage() {
     })
   }
 
-  // Basit dosya yükleme fonksiyonu
+  // Dosya yükleme fonksiyonu
   const uploadFile = async (file: File): Promise<string> => {
     try {
-      console.log("📤 Dosya yükleniyor:", file.name)
-
-      // Dosya tipi kontrolü
-      const isImage = file.type.startsWith("image/")
-      const isVideo = file.type.startsWith("video/")
-
-      if (!isImage && !isVideo) {
-        throw new Error("Desteklenmeyen dosya formatı")
-      }
+      console.log("📤 Dosya yükleniyor:", file.name, file.type)
 
       // Form data oluştur
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("fileType", isImage ? "image" : "video")
+      formData.append("fileType", file.type.startsWith("image/") ? "image" : "video")
 
-      // API'ye gönder - TOKEN YOK
+      // API'ye gönder
       const response = await fetch("/api/admin/upload", {
         method: "POST",
         body: formData,
@@ -354,9 +346,10 @@ export default function NewProductPage() {
         try {
           const url = await uploadFile(image.file)
           return {
-            url,
+            image_url: url,
             is_primary: image.is_primary,
             alt_text: image.alt_text,
+            sort_order: index,
           }
         } catch (error) {
           console.error(`❌ Resim ${index + 1} yüklenemedi:`, error)
@@ -365,14 +358,19 @@ export default function NewProductPage() {
       })
 
       const results = await Promise.all(uploadPromises)
-      const validResults = results.filter(Boolean) as { url: string; is_primary: boolean; alt_text: string }[]
+      const validResults = results.filter(Boolean) as {
+        image_url: string
+        is_primary: boolean
+        alt_text: string
+        sort_order: number
+      }[]
 
-      const imageUrls = validResults.map((r) => r.url)
+      const imageUrls = validResults.map((r) => r.image_url)
       const primaryImage = validResults.find((r) => r.is_primary)
 
       return {
-        imageUrls,
-        primaryImageUrl: primaryImage?.url || (imageUrls.length > 0 ? imageUrls[0] : ""),
+        imageUrls: validResults,
+        primaryImageUrl: primaryImage?.image_url || (imageUrls.length > 0 ? imageUrls[0] : ""),
       }
     } catch (error) {
       console.error("❌ Resim yükleme hatası:", error)
@@ -388,9 +386,10 @@ export default function NewProductPage() {
 
     try {
       setVideo360Uploading(true)
-      console.log("🎥 360° video yükleniyor")
+      console.log("🎥 360° video yükleniyor...")
       const url = await uploadFile(video360File)
       setVideo360Url(url)
+      console.log("✅ 360° video yüklendi:", url)
       return url
     } catch (error) {
       console.error("❌ 360 video yükleme hatası:", error)
@@ -400,7 +399,7 @@ export default function NewProductPage() {
     }
   }
 
-  // Ürün kaydetme
+  // Ürün kaydetme - DOSYA YÜKLEME İLE
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
@@ -424,38 +423,28 @@ export default function NewProductPage() {
         return
       }
 
-      // Resimleri yükle
-      let imageResults = { imageUrls: [], primaryImageUrl: "" }
-      let video360UploadedUrl = ""
+      // 1. Önce resimleri yükle
+      console.log("📸 Resimler yükleniyor...")
+      const { imageUrls } = await uploadAllImages()
 
-      try {
-        if (productData.images.length > 0) {
-          imageResults = await uploadAllImages()
-        }
-
-        if (video360File) {
-          video360UploadedUrl = await uploadVideo360()
-        }
-      } catch (error) {
-        toast.error("Dosya yükleme sırasında bir hata oluştu")
-        return
+      // 2. 360° video varsa yükle
+      let video360Url = ""
+      if (video360File) {
+        console.log("🎥 360° video yükleniyor...")
+        video360Url = await uploadVideo360()
       }
 
-      // Ürün verilerini hazırla
+      // 3. Ürün verilerini hazırla
       const productPayload = {
         ...productData,
-        video_360_url: video360UploadedUrl || video360Url,
-        images: imageResults.imageUrls.map((url, index) => ({
-          image_url: url,
-          alt_text: productData.images[index]?.alt_text || productData.name,
-          is_primary: index === 0,
-          sort_order: index,
-        })),
+        video_360_url: video360Url,
+        images: imageUrls,
       }
 
       console.log("📦 Ürün kaydediliyor...")
+      console.log("🎥 360° Video URL:", video360Url || "Yok")
 
-      // API'ye gönder - TOKEN YOK
+      // 4. API'ye gönder
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: {
@@ -464,15 +453,18 @@ export default function NewProductPage() {
         body: JSON.stringify(productPayload),
       })
 
+      console.log("📡 API yanıtı:", response.status, response.statusText)
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.error("❌ API hatası:", errorData)
         throw new Error(errorData.message || "Ürün kaydedilirken bir hata oluştu")
       }
 
       const data = await response.json()
-      console.log("✅ Ürün başarıyla kaydedildi")
+      console.log("✅ Ürün başarıyla kaydedildi:", data)
 
-      toast.success("Ürün başarıyla kaydedildi")
+      toast.success("Ürün başarıyla kaydedildi!")
       router.push("/admin/products")
     } catch (error) {
       console.error("❌ Ürün kaydetme hatası:", error)
@@ -525,7 +517,7 @@ export default function NewProductPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handleSubmit} disabled={saving || uploading}>
+          <Button onClick={handleSubmit} disabled={saving || uploading || video360Uploading}>
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Kaydediliyor..." : "Kaydet"}
           </Button>
@@ -536,7 +528,7 @@ export default function NewProductPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="details">Temel Bilgiler</TabsTrigger>
-            <TabsTrigger value="images">Resimler</TabsTrigger>
+            <TabsTrigger value="media">Medya</TabsTrigger>
             <TabsTrigger value="features">Özellikler</TabsTrigger>
             <TabsTrigger value="inventory">Stok & Fiyat</TabsTrigger>
             <TabsTrigger value="seo">SEO</TabsTrigger>
@@ -684,124 +676,110 @@ export default function NewProductPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="images" className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
+          <TabsContent value="media" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
                   <CardTitle>Ürün Resimleri</CardTitle>
                   <CardDescription>En fazla 3 resim yükleyebilirsiniz</CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={productData.images.length >= 3}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Resim Ekle
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  accept="image/*"
-                  className="hidden"
-                  multiple
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {productData.images.map((image, index) => (
-                    <div key={index} className="relative group border rounded-lg p-3">
-                      <div className="relative h-48 mb-3">
-                        <img
-                          src={image.previewUrl || "/placeholder.svg"}
-                          alt={image.alt_text}
-                          className="w-full h-full object-contain rounded-md border"
-                        />
-                        {image.is_primary && (
-                          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
-                            Ana Resim
-                          </div>
-                        )}
-                        {image.is_uploading && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-md">
-                            <RefreshCw className="h-8 w-8 text-white animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Input
-                          value={image.alt_text}
-                          onChange={(e) => updateImageAltText(index, e.target.value)}
-                          placeholder="Resim açıklaması"
-                          className="text-sm"
-                        />
-                        <div className="flex justify-between gap-2">
-                          {!image.is_primary && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => setPrimaryImage(index)}
-                            >
-                              Ana Resim Yap
-                            </Button>
-                          )}
-                          <Button variant="destructive" size="sm" className="flex-1" onClick={() => removeImage(index)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Resim Yükle</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={productData.images.length >= 3}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Resim Seç
+                      </Button>
+                      <span className="text-sm text-gray-500">{productData.images.length}/3 resim yüklendi</span>
                     </div>
-                  ))}
-                </div>
-
-                {productData.images.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 border border-dashed rounded-lg">
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                    <p>Henüz resim eklenmemiş</p>
-                    <p className="text-sm">Resim eklemek için "Resim Ekle" butonuna tıklayın</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
                   </div>
-                )}
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
+                  {productData.images.length > 0 && (
+                    <div className="space-y-4">
+                      {productData.images.map((image, index) => (
+                        <div key={index} className="border rounded-lg p-4">
+                          <div className="flex items-start gap-4">
+                            <img
+                              src={image.previewUrl || "/placeholder.svg"}
+                              alt={image.alt_text}
+                              className="w-20 h-20 object-cover rounded"
+                            />
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox checked={image.is_primary} onCheckedChange={() => setPrimaryImage(index)} />
+                                <Label className="text-sm">Ana Resim</Label>
+                              </div>
+                              <Input
+                                value={image.alt_text}
+                                onChange={(e) => updateImageAltText(index, e.target.value)}
+                                placeholder="Alt text"
+                                className="text-sm"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeImage(index)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>360° Video</CardTitle>
-                  <CardDescription>Ürünün 360 derece videosu</CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => video360InputRef.current?.click()}
-                  disabled={!!video360File || video360Uploading}
-                >
-                  <Eye360 className="h-4 w-4 mr-2" />
-                  Video Ekle
-                </Button>
-                <input
-                  type="file"
-                  ref={video360InputRef}
-                  onChange={handleVideo360Upload}
-                  accept="video/*"
-                  className="hidden"
-                />
-              </CardHeader>
-              <CardContent>
-                {video360Preview ? (
-                  <Video360Preview />
-                ) : (
-                  <div className="text-center py-8 text-gray-500 border border-dashed rounded-lg">
-                    <Eye360 className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                    <p>Henüz 360° video eklenmemiş</p>
-                    <p className="text-sm">Video eklemek için "Video Ekle" butonuna tıklayın</p>
+                  <CardDescription>Ürün için 360 derece video yükleyin</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>360° Video Yükle</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => video360InputRef.current?.click()}
+                        disabled={video360Uploading}
+                      >
+                        <Video className="h-4 w-4 mr-2" />
+                        {video360Uploading ? "Yükleniyor..." : "Video Seç"}
+                      </Button>
+                      {video360File && <span className="text-sm text-green-600">✅ {video360File.name}</span>}
+                    </div>
+                    <input
+                      ref={video360InputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideo360Upload}
+                      className="hidden"
+                    />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+
+                  <Video360Preview />
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="features" className="space-y-6">
