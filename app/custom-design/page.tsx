@@ -32,7 +32,7 @@ export default function CustomDesignPage() {
     setIsClient(true)
   }, [])
 
-   useEffect(() => {
+  useEffect(() => {
     const fetchCategories = async () => {
       try {
         const res = await fetch("/api/categories")
@@ -182,8 +182,8 @@ export default function CustomDesignPage() {
                       <SelectValue placeholder="Ürün tipi seçin" />
                     </SelectTrigger>
                     <SelectContent>
-                       {categoriesLoading ? (
-                        <SelectItem value="" disabled>
+                        {categoriesLoading ? (
+                        <SelectItem value="loading" disabled>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Yükleniyor...
                         </SelectItem>
                       ) : (
