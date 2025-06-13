@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   try {
     const orders = await sql`
-      SELECT cdo.*, u.first_name, u.last_name, u.email as user_email
+      SELECT cdo.*, u.first_name, u.last_name, u.email as user_email, u.phone as user_phone
       FROM custom_design_orders cdo
       JOIN users u ON cdo.user_id = u.id
       ORDER BY cdo.created_at DESC

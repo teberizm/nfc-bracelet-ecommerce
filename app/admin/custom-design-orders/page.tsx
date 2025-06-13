@@ -6,14 +6,16 @@ import { useAdmin } from "@/contexts/admin-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, MessageCircle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { getWhatsAppUrl } from "@/lib/utils"
 
 interface CustomDesignOrder {
   id: string
   first_name: string
   last_name: string
   user_email: string
+  user_phone: string | null
   product_type: string
   material: string
   status: string
@@ -110,9 +112,22 @@ export default function AdminCustomDesignOrdersPage() {
                     ? `${order.price.toLocaleString("tr-TR")} ₺`
                     : "fiyat bilgisi girilmedi."}
                 </p>
-                <Button size="sm" asChild>
-                  <Link href={`/admin/custom-design-orders/${order.id}`}>Detay</Link>
-                </Button>
+                <div className="flex justify-end gap-2">
+                  {order.user_phone && (
+                    <Button size="sm" variant="outline" asChild>
+                      <a
+                        href={getWhatsAppUrl(order.user_phone, order.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
+                  <Button size="sm" asChild>
+                    <Link href={`/admin/custom-design-orders/${order.id}`}>Detay</Link>
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

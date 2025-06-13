@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { RefreshCw, ArrowLeft } from "lucide-react"
+import { getWhatsAppUrl } from "@/lib/utils"
+import { RefreshCw, ArrowLeft, MessageCircle } from "lucide-react"
 
 interface CustomDesignOrderDetail {
   id: string
   first_name: string
   last_name: string
   user_email: string
+  user_phone: string | null
   product_type: string
   material: string
   description: string
@@ -138,7 +140,23 @@ export default function AdminCustomDesignOrderDetailPage() {
           {order.first_name} {order.last_name}
         </h1>
       </div>
-
+	<Card>
+        <CardHeader>
+          <CardTitle>Müşteri Bilgileri</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-600">{order.user_email}</p>
+          {order.user_phone && <p className="text-sm text-gray-600">{order.user_phone}</p>}
+          {order.user_phone && (
+            <Button size="sm" className="w-full" asChild>
+              <a href={getWhatsAppUrl(order.user_phone, order.id)} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="h-4 w-4 mr-2" />
+                WhatsApp ile İletişim
+              </a>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Sipariş Detayı</CardTitle>
