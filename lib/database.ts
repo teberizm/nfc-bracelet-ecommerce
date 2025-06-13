@@ -147,7 +147,7 @@ export async function updateCustomDesignOrder(
       RETURNING *
     `
 
-    const result = await sql(query, ...values)
+    const result = await sql(query, values)
     return result[0]
   } catch (error) {
     console.error('Error updating custom design order:', error)
@@ -668,7 +668,7 @@ export async function updateNFCContent(
       RETURNING *
     `
 
-    const result = await sql(query, ...values)
+    const result = await sql(query, values)
     return result[0]
   } catch (error) {
     console.error("Error updating NFC content:", error)
@@ -747,7 +747,7 @@ export async function getAllOrdersForAdmin(filters: {
     console.log("SQL Query:", query)
     console.log("Parameters:", params)
 
-    const orders = await sql(query, ...params)
+    const orders = await sql(query, params)
 
     console.log(`${orders.length} sipariş bulundu`)
 
@@ -828,7 +828,7 @@ export async function getAllUsersForAdmin(filters: {
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `
 
-     const result = await sql(query, ...queryParams)
+     const result = await sql(query, queryParams)
     return result
   } catch (error) {
     console.error("Error getting all users for admin:", error)
@@ -877,7 +877,7 @@ export async function getAllNFCContentForAdmin(filters: {
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `
 
-    const result = await sql(query, ...queryParams)
+    const result = await sql(query, queryParams)
     return result
   } catch (error) {
     console.error("Error getting all NFC content for admin:", error)
