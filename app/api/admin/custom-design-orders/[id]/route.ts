@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server"
 import { sql, updateCustomDesignOrder } from "@/lib/database"
+import { verifyAdminToken } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
+
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const adminPayload = await verifyAdminToken(token)
+
+    if (!adminPayload) {
+      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
+    }
+
     const [order] = await sql`
        SELECT cdo.*, u.first_name, u.last_name, u.email as user_email, u.phone as user_phone
       FROM custom_design_orders cdo
@@ -26,6 +40,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Yetkilendirme gerekli" }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const adminPayload = await verifyAdminToken(token)
+
+    if (!adminPayload) {
+      return NextResponse.json({ success: false, message: "Geçersiz token" }, { status: 401 })
+    }
     const body = await request.json()
     const updates: any = {}
     if (body.status) updates.status = body.status
