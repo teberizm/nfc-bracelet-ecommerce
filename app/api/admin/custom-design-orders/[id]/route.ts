@@ -28,7 +28,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   try {
     const body = await request.json()
     const updates: any = {}
-    
+    if (body.status) updates.status = body.status
     if (body.payment_status) updates.payment_status = body.payment_status
     if (typeof body.price !== "undefined") {
       const parsed =

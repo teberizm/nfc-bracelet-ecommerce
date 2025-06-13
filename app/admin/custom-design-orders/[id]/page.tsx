@@ -85,6 +85,7 @@ export default function AdminCustomDesignOrderDetailPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          status,
           payment_status: paymentStatus,
           price: price === "" ? null : Number(price),
         }),
