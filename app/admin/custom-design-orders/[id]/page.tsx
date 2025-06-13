@@ -84,11 +84,7 @@ export default function AdminCustomDesignOrderDetailPage() {
       const res = await fetch(`/api/admin/custom-design-orders/${params.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          payment_status: paymentStatus,
-          price: isNaN(parsedPrice as number) ? null : parsedPrice,
-        }),
+        body: JSON.stringify({ status }),
       })
       const data = await res.json()
       if (data.success) {
