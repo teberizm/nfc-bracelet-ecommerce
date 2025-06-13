@@ -77,13 +77,17 @@ export default function AdminCustomDesignOrderDetailPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
+      const parsedPrice =
+        price === ""
+          ? null
+          : Number.parseFloat(price.replace(",", "."))
       const res = await fetch(`/api/admin/custom-design-orders/${params.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
           payment_status: paymentStatus,
-          price: price === "" ? null : Number(price),
+          price: isNaN(parsedPrice as number) ? null : parsedPrice,
         }),
       })
       const data = await res.json()
@@ -201,7 +205,13 @@ export default function AdminCustomDesignOrderDetailPage() {
             </div>
             <div>
               <label className="text-sm font-medium">Fiyat (₺)</label>
-              <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Fiyat" />
+              <Input
+                type="number"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Fiyat"
+              />
             </div>
           </div>
 
