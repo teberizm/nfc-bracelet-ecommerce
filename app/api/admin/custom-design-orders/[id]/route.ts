@@ -28,8 +28,22 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   try {
     const body = await request.json()
     const updates: any = {}
-    if (body.status) updates.status = body.status
-     
+    
+    if (body.payment_status) updates.payment_status = body.payment_status
+    if (typeof body.price !== "undefined") {
+      const parsed =
+        body.price === null
+          ? null
+          : Number.parseFloat(String(body.price).replace(",", "."))
+      if (!Number.isNaN(parsed as number) || parsed === null) {
+         updates.price = parsed === null ? null : Math.round(parsed * 100) / 100
+      } else {
+        return NextResponse.json(
+          { success: false, message: "Invalid price" },
+          { status: 400 },
+        )
+      }
+    }
 
     const updated = await updateCustomDesignOrder(params.id, updates)
     return NextResponse.json({ success: true, order: updated })
