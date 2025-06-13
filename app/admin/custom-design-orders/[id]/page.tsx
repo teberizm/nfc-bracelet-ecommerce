@@ -30,6 +30,7 @@ export default function AdminCustomDesignOrderDetailPage() {
   const { toast } = useToast()
   const [order, setOrder] = useState<CustomDesignOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState("pending")
   const [paymentStatus, setPaymentStatus] = useState("pending")
   const [price, setPrice] = useState("")
@@ -42,6 +43,7 @@ export default function AdminCustomDesignOrderDetailPage() {
   const fetchOrder = async () => {
     try {
       setLoading(true)
+      setError(null)
       const res = await fetch(`/api/admin/custom-design-orders/${params.id}`)
       const data = await res.json()
       if (data.success) {
@@ -49,9 +51,21 @@ export default function AdminCustomDesignOrderDetailPage() {
         setStatus(data.order.status)
         setPaymentStatus(data.order.payment_status)
         setPrice(data.order.price !== null ? data.order.price.toString() : "")
-      }
+      } else {
+        toast({
+          title: "Hata",
+          description: data.message || "Sipariş bulunamadı",
+          variant: "destructive",
+        })
+        setError(data.message || "Sipariş bulunamadı")
     } catch (err) {
       console.error("Error fetching order", err)
+      toast({
+        title: "Hata",
+        description: "Sipariş yüklenirken hata oluştu",
+        variant: "destructive",
+      })
+      setError("Sipariş yüklenirken hata oluştu")
     } finally {
       setLoading(false)
     }
@@ -95,7 +109,16 @@ export default function AdminCustomDesignOrderDetailPage() {
       </div>
     )
   }
-
+  if (error) {
+    return (
+      <div className="text-center py-12 space-y-4">
+        <p className="text-red-500">{error}</p>
+        <Button variant="outline" onClick={fetchOrder}>
+          <RefreshCw className="h-4 w-4 mr-2" /> Tekrar Dene
+        </Button>
+      </div>
+    )
+  }
   if (!order) {
     return (
       <div className="text-center py-12">Sipariş bulunamadı.</div>

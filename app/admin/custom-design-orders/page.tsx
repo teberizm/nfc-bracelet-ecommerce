@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 interface CustomDesignOrder {
   id: string
@@ -32,6 +33,7 @@ export default function AdminCustomDesignOrdersPage() {
   const { state } = useAdmin()
   const [orders, setOrders] = useState<CustomDesignOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (state.isAuthenticated) {
@@ -42,13 +44,26 @@ export default function AdminCustomDesignOrdersPage() {
   const fetchOrders = async () => {
     try {
       setLoading(true)
+      setError(null)
       const res = await fetch("/api/admin/custom-design-orders")
       const data = await res.json()
       if (data.success) {
         setOrders(data.orders)
-      }
+      } else {
+        toast({
+          title: "Hata",
+          description: data.message || "Siparişler yüklenemedi",
+          variant: "destructive",
+        })
+        setError(data.message || "Siparişler yüklenemedi")
     } catch (err) {
       console.error("Error fetching custom design orders", err)
+      toast({
+        title: "Hata",
+        description: "Siparişler yüklenirken bir hata oluştu",
+        variant: "destructive",
+      })
+      setError("Siparişler yüklenirken bir hata oluştu")
     } finally {
       setLoading(false)
     }
@@ -103,7 +118,18 @@ export default function AdminCustomDesignOrdersPage() {
         ))}
       </div>
 
-      {orders.length === 0 && (
+      {error && (
+        <Card>
+          <CardContent className="pt-6 text-center space-y-4">
+            <p className="text-red-500">{error}</p>
+            <Button variant="outline" onClick={fetchOrders}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Tekrar Dene
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!error && orders.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-gray-500">Henüz sipariş bulunmuyor.</p>
