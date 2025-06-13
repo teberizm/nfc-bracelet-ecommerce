@@ -27,11 +27,7 @@ export default function AdminCustomDesignOrderDetailPage() {
   const [price, setPrice] = useState("")
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (params.id) loadOrder()
-  }, [params.id])
-
-  const fetchOrder = async () => {
+  const loadOrder = async () => {
     try {
       setLoading(true)
       setError(null)
@@ -47,7 +43,9 @@ export default function AdminCustomDesignOrderDetailPage() {
       setLoading(false)
     }
   }
-
+  useEffect(() => {
+    if (params.id) loadOrder()
+  }, [params.id])
   const handleSave = async () => {
     try {
       setSaving(true)

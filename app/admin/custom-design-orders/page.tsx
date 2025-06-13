@@ -28,13 +28,7 @@ export default function AdminCustomDesignOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (state.isAuthenticated) {
-      loadOrders()
-    }
-  }, [state.isAuthenticated])
-
-  const fetchOrders = async () => {
+  const loadOrders = async () => {
     try {
       setLoading(true)
       setError(null)
@@ -47,7 +41,11 @@ export default function AdminCustomDesignOrdersPage() {
       setLoading(false)
     }
   }
-
+  useEffect(() => {
+    if (state.isAuthenticated) {
+      loadOrders()
+    }
+  }, [state.isAuthenticated])
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
