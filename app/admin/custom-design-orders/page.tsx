@@ -7,22 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, MessageCircle } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import {
+  useCustomDesignOrders,
+  type CustomDesignOrder,
+} from "@/hooks/use-custom-design-orders"
 import { getWhatsAppUrl } from "@/lib/utils"
-
-interface CustomDesignOrder {
-  id: string
-  first_name: string
-  last_name: string
-  user_email: string
-  user_phone: string | null
-  product_type: string
-  material: string
-  status: string
-  payment_status: string
-  price: number | null
-  created_at: string
-}
+ 
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -33,13 +23,14 @@ const statusColors: Record<string, string> = {
 
 export default function AdminCustomDesignOrdersPage() {
   const { state } = useAdmin()
+  const { fetchOrders: fetchOrdersApi } = useCustomDesignOrders()
   const [orders, setOrders] = useState<CustomDesignOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (state.isAuthenticated) {
-      fetchOrders()
+      loadOrders()
     }
   }, [state.isAuthenticated])
 
@@ -47,26 +38,11 @@ export default function AdminCustomDesignOrdersPage() {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch("/api/admin/custom-design-orders")
-      const data = await res.json()
-      if (data.success) {
-        setOrders(data.orders)
-      } else {
-        toast({
-          title: "Hata",
-          description: data.message || "Siparişler yüklenemedi",
-          variant: "destructive",
-        })
-        setError(data.message || "Siparişler yüklenemedi")
-	}
-    } catch (err) {
+      const data = await fetchOrdersApi()
+      setOrders(data)
+    } catch (err: any) {
       console.error("Error fetching custom design orders", err)
-      toast({
-        title: "Hata",
-        description: "Siparişler yüklenirken bir hata oluştu",
-        variant: "destructive",
-      })
-      setError("Siparişler yüklenirken bir hata oluştu")
+      setError(err.message || "Siparişler yüklenemedi")
     } finally {
       setLoading(false)
     }
@@ -138,7 +114,7 @@ export default function AdminCustomDesignOrdersPage() {
         <Card>
           <CardContent className="pt-6 text-center space-y-4">
             <p className="text-red-500">{error}</p>
-            <Button variant="outline" onClick={fetchOrders}>
+            <Button variant="outline" onClick={loadOrders}>
               <RefreshCw className="h-4 w-4 mr-2" /> Tekrar Dene
             </Button>
           </CardContent>

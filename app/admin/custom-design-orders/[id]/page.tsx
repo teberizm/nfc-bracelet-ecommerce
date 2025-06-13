@@ -7,30 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
+import {
+  useCustomDesignOrders,
+  type CustomDesignOrder,
+} from "@/hooks/use-custom-design-orders"
 import { getWhatsAppUrl } from "@/lib/utils"
 import { RefreshCw, ArrowLeft, MessageCircle } from "lucide-react"
 
-interface CustomDesignOrderDetail {
-  id: string
-  first_name: string
-  last_name: string
-  user_email: string
-  user_phone: string | null
-  product_type: string
-  material: string
-  description: string
-  image_url: string
-  status: string
-  payment_status: string
-  price: number | null
-  created_at: string
-}
+ 
 
 export default function AdminCustomDesignOrderDetailPage() {
   const params = useParams()
-  const { toast } = useToast()
-  const [order, setOrder] = useState<CustomDesignOrderDetail | null>(null)
+  const { fetchOrder: fetchOrderApi, updateOrder } = useCustomDesignOrders()
+  const [order, setOrder] = useState<CustomDesignOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState("pending")
@@ -39,36 +28,21 @@ export default function AdminCustomDesignOrderDetailPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (params.id) fetchOrder()
+    if (params.id) loadOrder()
   }, [params.id])
 
   const fetchOrder = async () => {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch(`/api/admin/custom-design-orders/${params.id}`)
-      const data = await res.json()
-      if (data.success) {
-        setOrder(data.order)
-        setStatus(data.order.status)
-        setPaymentStatus(data.order.payment_status)
-        setPrice(data.order.price !== null ? data.order.price.toString() : "")
-      } else {
-        toast({
-          title: "Hata",
-          description: data.message || "Sipariş bulunamadı",
-          variant: "destructive",
-        })
-        setError(data.message || "Sipariş bulunamadı")
-	}
-    } catch (err) {
+      const data = await fetchOrderApi(String(params.id))
+      setOrder(data)
+      setStatus(data.status)
+      setPaymentStatus(data.payment_status)
+      setPrice(data.price !== null ? data.price.toString() : "")
+    } catch (err: any) {
       console.error("Error fetching order", err)
-      toast({
-        title: "Hata",
-        description: "Sipariş yüklenirken hata oluştu",
-        variant: "destructive",
-      })
-      setError("Sipariş yüklenirken hata oluştu")
+       setError(err.message || "Sipariş yüklenirken hata oluştu")
     } finally {
       setLoading(false)
     }
@@ -77,33 +51,17 @@ export default function AdminCustomDesignOrderDetailPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      const parsedPrice =
-        price === ""
-          ? null
-          : Number.parseFloat(price.replace(",", "."))
-      const res = await fetch(`/api/admin/custom-design-orders/${params.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          payment_status: paymentStatus,
-          price: price === "" ? null : Number(price),
-        }),
+      const parsedPrice = price === "" ? null : Number.parseFloat(price.replace(",", "."))
+      const updated = await updateOrder(String(params.id), {
+        status,
+        payment_status: paymentStatus,
+        price: parsedPrice,
       })
-      const data = await res.json()
-      if (data.success) {
-        toast({ title: "Başarılı", description: "Sipariş güncellendi" })
-        fetchOrder()
-      } else {
-        toast({
-          title: "Hata",
-          description: data.message || "Güncelleme hatası",
-          variant: "destructive",
-        })
-      }
+       setOrder(updated)
+      setPrice(updated.price !== null ? updated.price.toString() : "")
     } catch (err) {
       console.error("Update error", err)
-      toast({ title: "Hata", description: "Güncelleme sırasında sorun oluştu", variant: "destructive" })
+       
     } finally {
       setSaving(false)
     }
@@ -120,7 +78,7 @@ export default function AdminCustomDesignOrderDetailPage() {
     return (
       <div className="text-center py-12 space-y-4">
         <p className="text-red-500">{error}</p>
-        <Button variant="outline" onClick={fetchOrder}>
+         <Button variant="outline" onClick={loadOrder}>
           <RefreshCw className="h-4 w-4 mr-2" /> Tekrar Dene
         </Button>
       </div>
