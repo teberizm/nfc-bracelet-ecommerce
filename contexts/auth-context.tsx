@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem("authToken")
       if (!token) return
 
-      const response = await fetch("/api/orders", {
+      const response = await fetch(`/api/orders?userId=${state.user.id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
