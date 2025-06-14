@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             })
 
             // Kullanıcının siparişlerini yükle
-            fetchOrders()
+            fetchOrders(data.user.id)
           } else {
             // Token geçersiz ise localStorage'dan temizle
             localStorage.removeItem("authToken")
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
 
         // Kullanıcının siparişlerini yükle
-        await fetchOrders()
+        await fetchOrders(data.user.id)
 
         return true
       } else {
@@ -271,14 +271,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const fetchOrders = async (): Promise<void> => {
-    if (!state.isAuthenticated || !state.user) return
+  const fetchOrders = async (userId?: string): Promise<void> => {
+    const id = userId || state.user?.id
+    if (!id) return
 
     try {
       const token = localStorage.getItem("authToken")
       if (!token) return
 
-      const response = await fetch(`/api/orders?userId=${state.user.id}`, {
+      const response = await fetch(`/api/orders?userId=${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
