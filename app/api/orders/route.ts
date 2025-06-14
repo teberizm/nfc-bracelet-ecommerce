@@ -1,16 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createOrder, createOrderItem, getOrdersByUserId, clearCart } from "@/lib/database"
+import { verifyToken } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Kullanıcı ID gerekli" }, { status: 400 })
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const orders = await getOrdersByUserId(userId)
+    const token = authHeader.split(" ")[1]
+    const decoded = await verifyToken(token)
+    if (!decoded || !decoded.userId) {
+      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const userIdParam = searchParams.get("userId")
+    if (userIdParam && userIdParam !== decoded.userId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+     
+    }
+
+    const orders = await getOrdersByUserId(decoded.userId)
 
     return NextResponse.json({
       success: true,
@@ -24,19 +36,33 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+    const decoded = await verifyToken(token)
+    if (!decoded || !decoded.userId) {
+      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
+    }
     const { userId, items, shippingAddress, billingAddress, paymentMethod, subtotal, totalAmount } =
       await request.json()
+      
+   if (userId && userId !== decoded.userId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
 
-    if (!userId || !items || !shippingAddress) {
+    if (!items || !shippingAddress) {
       return NextResponse.json({ success: false, error: "Gerekli alanlar eksik" }, { status: 400 })
     }
 
     // Sipariş numarası oluştur
     const orderNumber = `ORD-${Date.now()}`
-
+    const finalUserId = decoded.userId
     // Sipariş oluştur
     const order = await createOrder({
-      user_id: userId,
+      user_id: finalUserId,
       order_number: orderNumber,
       subtotal,
       total_amount: totalAmount,
@@ -60,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Sepeti temizle
-    await clearCart(userId)
+    await clearCart(finalUserId)
 
     return NextResponse.json({
       success: true,
