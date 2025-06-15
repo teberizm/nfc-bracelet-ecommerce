@@ -605,7 +605,7 @@ export async function getOrderById(orderId: string) {
 // NFC Content functions
 export async function createNFCContent(contentData: {
   order_id: string
-  theme: string
+  theme_id: string
   content: any
 }) {
   try {
@@ -613,7 +613,7 @@ export async function createNFCContent(contentData: {
        INSERT INTO nfc_content (order_id, theme_id, content)
       VALUES (
         ${contentData.order_id},
-        ${contentData.theme},
+        ${contentData.theme_id},
         ${JSON.stringify(contentData.content)}
       )
       RETURNING *
@@ -640,7 +640,7 @@ export async function getNFCContentByOrderId(orderId: string) {
 export async function updateNFCContent(
   orderId: string,
   contentData: {
-    theme?: string
+    theme_id?: string
     content?: any
   },
 ) {
@@ -648,9 +648,9 @@ export async function updateNFCContent(
     const updates = []
     const values = []
 
-    if (contentData.theme) {
-      updates.push("theme = $" + (values.length + 1))
-      values.push(contentData.theme)
+    if (contentData.theme_id) {
+      updates.push("theme_id = $" + (values.length + 1))
+      values.push(contentData.theme_id)
     }
 
     if (contentData.content) {
@@ -909,7 +909,7 @@ export async function getAllNFCContentForAdmin(filters: {
     const queryParams = []
 
     if (theme) {
-      whereConditions.push(`nc.theme = $${queryParams.length + 1}`)
+       whereConditions.push(`nc.theme_id = $${queryParams.length + 1}`)
       queryParams.push(theme)
     }
 

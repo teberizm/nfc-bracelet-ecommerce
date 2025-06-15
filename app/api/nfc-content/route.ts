@@ -15,14 +15,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { orderId, theme, content } = body
+    const { orderId, themeId, theme, content } = body
+    const finalThemeId = themeId || theme
 
-    if (!orderId || !theme) {
+    if (!orderId || !finalThemeId) {
       return NextResponse.json({ success: false, message: "Missing fields" }, { status: 400 })
     }
 
-    const created = await createNFCContent({ order_id: orderId, theme, content })
-    return NextResponse.json({ success: true, nfcContent: created })
+    const created = await createNFCContent({ order_id: orderId, theme_id: finalThemeId, content })
+    const normalized = { ...created, themeId: created.theme_id }
+    return NextResponse.json({ success: true, nfcContent: normalized })
   } catch (error) {
     console.error("Error in POST /api/nfc-content:", error)
     return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
@@ -42,14 +44,16 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { orderId, theme, content } = body
+    const { orderId, themeId, theme, content } = body
+    const finalThemeId = themeId || theme
 
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Missing orderId" }, { status: 400 })
     }
 
-    const updated = await updateNFCContent(orderId, { theme, content })
-    return NextResponse.json({ success: true, nfcContent: updated })
+    const updated = await updateNFCContent(orderId, { theme_id: finalThemeId, content })
+    const normalized = { ...updated, themeId: updated.theme_id }
+    return NextResponse.json({ success: true, nfcContent: normalized })
   } catch (error) {
     console.error("Error in PUT /api/nfc-content:", error)
     return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
