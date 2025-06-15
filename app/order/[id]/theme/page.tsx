@@ -127,7 +127,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
       const body = {
         orderId,
         themeId: selectedTheme.id,
-        content: {
+        customizations: {
           coverPhotoId: selectedCoverPhoto?.id,
         },
       }
