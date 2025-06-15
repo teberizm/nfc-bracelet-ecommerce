@@ -355,7 +355,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     availableThemes: mockThemes,
     isLoading: false,
   })
-
+ const { state: authState } = useAuth()
   const fetchedOrdersRef = React.useRef<Set<string>>(new Set())
   const publicFetchedOrdersRef = React.useRef<Set<string>>(new Set())
   const getOrderContent = (orderId: string): OrderContent | undefined => {
@@ -370,7 +370,8 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       content &&
       content.nfcContentId &&
       content.mediaItems.length === 0 &&
-      !fetchedOrdersRef.current.has(orderId)
+      !fetchedOrdersRef.current.has(orderId) &&
+      authState.isAuthenticated
     ) {
       fetchedOrdersRef.current.add(orderId)
       fetchMediaItems(orderId)
