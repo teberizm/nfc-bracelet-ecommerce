@@ -130,9 +130,10 @@ export default function NFCPage({ params }: NFCPageProps) {
   const texts = mediaItems.filter((item) => item.type === "text")
   const youtubeLinks = mediaItems.filter((item) => item.type === "youtube")
 
-  // Cover photo is the first image
-  const coverPhoto = images[0]
-  const remainingImages = images.slice(1)
+  const coverPhotoId = orderContent.customizations?.coverPhotoId
+  const coverPhoto =
+    images.find((img) => img.id === coverPhotoId) || images[0]
+  const remainingImages = images.filter((img) => img.id !== coverPhoto?.id)
 
   // Create automatic layout sections
   const createAutoLayout = () => {
