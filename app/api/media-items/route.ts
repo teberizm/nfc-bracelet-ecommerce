@@ -19,12 +19,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const contentId = searchParams.get("contentId")
-    if (!contentId) {
+    const nfcContentId = searchParams.get("nfcContentId") || searchParams.get("contentId")
+    if (!nfcContentId) {
       return NextResponse.json({ success: false, message: "Missing content id" }, { status: 400 })
     }
 
-     const rawItems = await getMediaItemsByContentId(contentId)
+     const rawItems = await getMediaItemsByContentId(nfcContentId)
     const items = rawItems.map((item) => ({
       id: item.id,
       nfc_content_id: item.nfc_content_id,
