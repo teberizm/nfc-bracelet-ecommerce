@@ -49,35 +49,50 @@ export default function ProfilePage() {
     }>
   >({})
 
+  // 1) Giriş kontrolü
   useEffect(() => {
     if (!state.isAuthenticated && !state.isLoading) {
       router.push("/login")
     }
   }, [state.isAuthenticated, state.isLoading, router])
 
+  // 2) Kullanıcı değişince düzenleme için hazırla
   useEffect(() => {
     if (state.user) {
       setEditedUser(state.user)
     }
   }, [state.user])
 
+  // 3) NFC içerik durumlarını initialize et
   useEffect(() => {
     async function initializeNfcStates() {
       const updates: Record<string, { contentUploaded: boolean; themeSelected: boolean; useSameContent: boolean }> = {}
-      state.orders.forEach(order => {
-        const items = expandOrderItems(order)
-        items.forEach(item => {
-          updates[item.itemIndex] = {
-            contentUploaded: false,
-            themeSelected: false,
-            useSameContent: false,
+
+      await Promise.all(
+        state.orders.map(async (order) => {
+          try {
+            const res = await fetch(`/api/public/nfc-content/${order.id}`)
+            if (res.status === 200) {
+              const items = expandOrderItems(order)
+              items.forEach((item: any) => {
+                updates[item.itemIndex] = {
+                  contentUploaded: true,
+                  themeSelected: false,
+                  useSameContent: false,
+                }
+              })
+            }
+          } catch (error) {
+            console.error("NFC içeriği kontrol hatası:", error)
           }
         })
-      })
+      )
+
       if (Object.keys(updates).length > 0) {
-        setNfcStates(prev => ({ ...prev, ...updates }))
+        setNfcStates((prev) => ({ ...prev, ...updates }))
       }
     }
+
     if (state.orders.length > 0) {
       initializeNfcStates()
     }
@@ -117,7 +132,7 @@ export default function ProfilePage() {
   }
 
   const handleUseSameContent = (itemKey: string, checked: boolean) => {
-    setNfcStates(prev => ({
+    setNfcStates((prev) => ({
       ...prev,
       [itemKey]: {
         ...prev[itemKey],
@@ -226,7 +241,7 @@ export default function ProfilePage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="orders" className="space-y-6">
+        <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile">Profil Bilgileri</TabsTrigger>
             <TabsTrigger value="orders">Siparişlerim ({state.orders.length})</TabsTrigger>
@@ -330,6 +345,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Adres Bilgileri */}
+
                 <Separator />
                 <div>
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
