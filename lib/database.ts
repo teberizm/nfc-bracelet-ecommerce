@@ -703,8 +703,10 @@ export async function createMediaItem(itemData: {
   sort_order?: number | null
 }) {
   try {
+    const id = uuidv4()
     const result = await sql`
       INSERT INTO media_items (
+        id,
         nfc_content_id,
         type,
         title,
@@ -716,6 +718,7 @@ export async function createMediaItem(itemData: {
         sort_order
       )
       VALUES (
+        ${id},
         ${itemData.nfc_content_id},
         ${itemData.type},
         ${itemData.title},
