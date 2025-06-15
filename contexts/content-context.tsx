@@ -447,9 +447,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         dispatch({
           type: "SET_ORDER_CONTENT",
           payload: {
-            orderId,
+            orderId: order_id,
             content: {
-              orderId,
+              orderId: order_id,
               mediaItems: items,
               selectedTheme: matchedTheme,
               isPublished: true,
