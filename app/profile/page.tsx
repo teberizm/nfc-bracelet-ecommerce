@@ -97,6 +97,33 @@ export default function ProfilePage() {
     router.push("/")
   }
 
+  useEffect(() => {
+    const initialStates: Record<
+      string,
+      {
+        contentUploaded: boolean
+        themeSelected: boolean
+        useSameContent: boolean
+      }
+    > = {}
+
+    state.orders.forEach((order) => {
+      order.items.forEach((item, itemIndex) => {
+        for (let i = 0; i < item.quantity; i++) {
+          const key = `${order.id}-${itemIndex}-${i}`
+          initialStates[key] = {
+            contentUploaded: !!order.nfcContentUploaded,
+            themeSelected: !!order.themeSelected,
+            useSameContent: false,
+          }
+        }
+      })
+    })
+
+    setNfcStates(initialStates)
+  }, [state.orders])
+
+
   const handleUseSameContent = (itemKey: string, checked: boolean) => {
     setNfcStates((prev) => ({
       ...prev,
