@@ -38,6 +38,9 @@ export interface OrderContent {
   isPublished: boolean
   nfcUrl?: string
   nfcContentId?: string
+  customizations?: {
+  coverPhotoId?: string
+  }
 }
 
 interface ContentState {
@@ -152,6 +155,7 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
         orderId: action.payload.orderId,
         mediaItems: [],
         isPublished: false,
+        customizations: {},
       }
       return {
         ...state,
@@ -199,6 +203,7 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
         orderId: action.payload.orderId,
         mediaItems: [],
         isPublished: false,
+        customizations: {},
       }
       return {
         ...state,
@@ -231,6 +236,7 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
         orderId: action.payload.orderId,
         mediaItems: [],
         isPublished: false,
+        customizations: {},
       }
       return {
         ...state,
@@ -349,6 +355,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         ],
         selectedTheme: mockThemes[0], // Eternal Love teması
         isPublished: true,
+        customizations: {
+          coverPhotoId: "1",
+        },
         nfcUrl: "https://nfc.example.com/demo-love-order",
       },
     },
@@ -444,6 +453,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
               selectedTheme: matchedTheme,
               isPublished: true,
               nfcContentId: data.orderContent.nfcContentId,
+              customizations: data.orderContent.customizations || {},
             },
           },
         })
