@@ -52,6 +52,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     uploadMedia,
     uploadAudioBlob,
     uploadTextItem,
+    uploadYouTubeUrl,
   } = useContent()
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
@@ -261,7 +262,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
   }
 
   // YouTube müzik ekleme
-  const handleYouTubeAdd = () => {
+  const handleYouTubeAdd = async () => {
     if (!youtubeUrl.trim() || !youtubeTitle.trim()) {
       toast({
         title: "Eksik Bilgi",
@@ -282,17 +283,19 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
       return
     }
 
-    const mediaItem: MediaContent = {
-      id: Date.now().toString(),
-      type: "audio",
-      title: youtubeTitle,
-      content: youtubeUrl,
-      thumbnailUrl: `https://img.youtube.com/vi/${extractYouTubeId(youtubeUrl)}/maxresdefault.jpg`,
-      createdAt: new Date().toISOString(),
+    try {
+      const item = await uploadYouTubeUrl(orderId, youtubeTitle, youtubeUrl)
+      dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item } })
+    } catch (error) {
+      toast({
+        title: "Yükleme Hatası",
+        description: "YouTube müziği eklenirken bir hata oluştu.",
+        variant: "destructive",
+      })
+      return
     }
 
-    dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })
-
+    
     // Temizle
     setYoutubeUrl("")
     setYoutubeTitle("")
@@ -303,12 +306,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     })
   }
 
-  const extractYouTubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
-    const match = url.match(regExp)
-    return match && match[2].length === 11 ? match[2] : null
-  }
-
+   
   const handleRemoveItem = (itemId: string) => {
     dispatch({ type: "REMOVE_MEDIA_ITEM", payload: { orderId, itemId } })
     toast({

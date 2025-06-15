@@ -68,6 +68,11 @@ const ContentContext = createContext<{
     duration: number,
   ) => Promise<MediaContent>
   uploadTextItem: (orderId: string, title: string, content: string) => Promise<MediaContent>
+  uploadYouTubeUrl: (
+    orderId: string,
+    title: string,
+    url: string,
+  ) => Promise<MediaContent>
   fetchMediaItems: (orderId: string) => Promise<void>
 } | null>(null)
 
@@ -560,6 +565,60 @@ export function ContentProvider({ children }: { children: ReactNode }) {
 
     return mediaItem
   }
+  const uploadYouTubeUrl = async (
+    orderId: string,
+    title: string,
+    url: string,
+  ): Promise<MediaContent> => {
+    const nfcContentId = await ensureNFCContent(orderId)
+
+    const token = localStorage.getItem("authToken")
+    if (!token) {
+      throw new Error("Not authenticated")
+    }
+
+    const extractYouTubeId = (link: string) => {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+      const match = link.match(regExp)
+      return match && match[2].length === 11 ? match[2] : null
+    }
+
+    const youtubeId = extractYouTubeId(url)
+    const thumbnailUrl = youtubeId
+      ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
+      : undefined
+
+    const response = await fetch("/api/media-items", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        nfc_content_id: nfcContentId,
+        type: "audio",
+        title,
+        content: url,
+        thumbnail_url: thumbnailUrl,
+      }),
+    })
+
+    const data = await response.json()
+    if (!data.success || !data.mediaItem) {
+      throw new Error("Upload failed")
+    }
+    const mediaItem: MediaContent = {
+      id: data.mediaItem.id,
+      type: data.mediaItem.type,
+      title: data.mediaItem.title,
+      content: data.mediaItem.content,
+      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
+      duration: data.mediaItem.duration || undefined,
+      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
+    }
+
+    return mediaItem
+  }
   return (
     <ContentContext.Provider
       value={{
@@ -569,6 +628,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         uploadMedia,
         uploadAudioBlob,
         uploadTextItem,
+        uploadYouTubeUrl,
         fetchMediaItems,
       }}
     >
