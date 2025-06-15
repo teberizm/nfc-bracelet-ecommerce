@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useReducer, type ReactNode } from "react"
-
+import { useAuth } from "./auth-context"
 export interface MediaContent {
   id: string
   type: "image" | "video" | "audio" | "text"
