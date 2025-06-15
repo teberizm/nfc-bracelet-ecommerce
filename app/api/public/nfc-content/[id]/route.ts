@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { NextResponse } from "next/server"
 import {
   getNFCContentByOrderIdPublic,
@@ -35,13 +37,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
       createdAt: item.created_at,
       updatedAt: item.updated_at,
     }))
-
+    let customizations = content.customizations
+    if (typeof customizations === "string") {
+      try {
+        customizations = JSON.parse(customizations)
+      } catch (_) {
+        customizations = null
+      }
+    }
     return NextResponse.json({
       success: true,
       orderContent: {
         orderId: content.order_id,
         nfcContentId: content.id,
         theme: content.theme ? { slug: content.theme, name: content.theme_name } : null,
+         customizations,
         mediaItems,
       },
     })
