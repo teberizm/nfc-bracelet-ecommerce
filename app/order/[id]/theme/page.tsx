@@ -291,7 +291,6 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
                 ))}
               </CardContent>
             </Card>
-            
             {/* Kapak Fotoğrafı Seçimi */}
             {selectedTheme && images.length > 0 && (
               <Card className="mt-6">
@@ -385,73 +384,11 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
                     }}
                   >
                     {selectedTheme ? (
-                      <iframe
+                       <iframe
                         src={`/demo/${selectedTheme.id}`}
                         title={`${selectedTheme.name} demo`}
                         className="w-full h-full border-0"
                       />
-                            ) : (
-                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <Camera className="h-8 w-8 text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-
-                          <h1
-                            className="text-lg font-bold mb-2"
-                            style={{
-                              color: selectedTheme.layout.accentColor,
-                              textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                            }}
-                          >
-                            {selectedTheme.id === "love"
-                              ? "Bizim Hikayemiz"
-                              : selectedTheme.id === "adventure"
-                                ? "Macera Günlüğüm"
-                                : "Anılarım"}
-                          </h1>
-                        </div>
-
-                        {/* İçerik Önizleme */}
-                        <div className="space-y-3">
-                          {orderContent.mediaItems.slice(1, 4).map((item, index) => (
-                            <div
-                              key={item.id}
-                              className="p-2 rounded text-xs"
-                              style={{
-                                backgroundColor: `${selectedTheme.layout.accentColor}20`,
-                                
-                              }}
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                {item.type === "image" && <div className="w-3 h-3 bg-green-500 rounded" />}
-                                {item.type === "video" && <div className="w-3 h-3 bg-red-500 rounded" />}
-                                {item.type === "audio" && <div className="w-3 h-3 bg-blue-500 rounded" />}
-                                {item.type === "text" && <div className="w-3 h-3 bg-purple-500 rounded" />}
-                                <span className="font-medium" style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.5)" }}>
-                                  {item.title}
-                                </span>
-                              </div>
-                              {item.type === "text" && (
-                                <p
-                                  className="opacity-75 line-clamp-2"
-                                  style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.5)" }}
-                                >
-                                  {item.content}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                          {orderContent.mediaItems.length > 4 && (
-                            <div
-                              className="text-center text-xs opacity-75"
-                              style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.5)" }}
-                            >
-                              +{orderContent.mediaItems.length - 4} daha fazla içerik
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     ) : (
                       <div className="h-full flex items-center justify-center text-gray-500">
                         <div className="text-center">
