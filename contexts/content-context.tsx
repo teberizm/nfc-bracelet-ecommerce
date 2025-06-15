@@ -392,6 +392,38 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       console.error("Fetch media items error:", error)
     }
   }
+  const ensureNFCContent = async (orderId: string): Promise<string> => {
+    const existing = state.orderContents[orderId]
+    if (existing?.nfcContentId) {
+      return existing.nfcContentId
+    }
+
+    const token = localStorage.getItem("authToken")
+    if (!token) {
+      throw new Error("Not authenticated")
+    }
+
+    const response = await fetch("/api/nfc-content", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ orderId }),
+    })
+
+    const data = await response.json()
+    if (!data.success || !data.nfcContent) {
+      throw new Error("Failed to create NFC content")
+    }
+
+    dispatch({
+      type: "SET_NFC_CONTENT_ID",
+      payload: { orderId, nfcContentId: data.nfcContent.id },
+    })
+
+    return data.nfcContent.id
+  }
   const uploadMedia = async (
     orderId: string,
     file: File,
@@ -399,10 +431,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     title: string,
   ): Promise<MediaContent> => {
     // Mock file upload (gerçek uygulamada cloud storage'a yüklenecek)
-   const content = state.orderContents[orderId]
-    if (!content?.nfcContentId) {
-      throw new Error("Missing NFC content id")
-    }
+    const nfcContentId = await ensureNFCContent(orderId)
 
     const token = localStorage.getItem("authToken")
     if (!token) {
@@ -411,7 +440,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
 
     const formData = new FormData()
     formData.append("file", file)
-    formData.append("nfc_content_id", content.nfcContentId)
+    formData.append("nfc_content_id", nfcContentId)
     formData.append("type", type)
     formData.append("title", title)
 

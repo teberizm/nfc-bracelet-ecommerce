@@ -16,10 +16,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { orderId, themeId, theme, content } = body
-    const finalThemeId = themeId || theme
+    const finalThemeId = themeId || theme || null
 
-    if (!orderId || !finalThemeId) {
-      return NextResponse.json({ success: false, message: "Missing fields" }, { status: 400 })
+    if (!orderId) {
+      return NextResponse.json({ success: false, message: "Missing orderId" }, { status: 400 })
+    }
     }
 
     const created = await createNFCContent({ order_id: orderId, theme_id: finalThemeId, content })
