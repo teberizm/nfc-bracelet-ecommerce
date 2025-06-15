@@ -45,7 +45,7 @@ interface TextItem {
 
 export default function ContentUploadPage({ params }: ContentUploadPageProps) {
   const { state: authState } = useAuth()
-  const { state, dispatch, getOrderContent, uploadMedia } = useContent()
+  const { state, dispatch, getOrderContent, uploadMedia, uploadTextItem } = useContent()
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -138,7 +138,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     setTextItems(textItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
-  const handleSaveAllTexts = () => {
+  const handleSaveAllTexts = async () => {
     const validTexts = textItems.filter((item) => item.title.trim() && item.content.trim())
 
     if (validTexts.length === 0) {
@@ -150,16 +150,19 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
       return
     }
 
-    validTexts.forEach((textItem) => {
-      const mediaItem: MediaContent = {
-        id: Date.now().toString() + Math.random(),
-        type: "text",
-        title: textItem.title,
-        content: textItem.content,
-        createdAt: new Date().toISOString(),
+    try {
+      for (const textItem of validTexts) {
+        const item = await uploadTextItem(orderId, textItem.title, textItem.content)
+        dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item } })
       }
-      dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })
-    })
+      } catch (error) {
+      toast({
+        title: "Yükleme Hatası",
+        description: "Metinler yüklenirken bir hata oluştu.",
+        variant: "destructive",
+      })
+      return
+    }
 
     // Form'u temizle
     setTextItems([{ id: "1", title: "", content: "" }])

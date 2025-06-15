@@ -61,6 +61,7 @@ const ContentContext = createContext<{
   dispatch: React.Dispatch<ContentAction>
   getOrderContent: (orderId: string) => OrderContent | undefined
   uploadMedia: (orderId: string, file: File, type: MediaContent["type"], title: string) => Promise<MediaContent>
+  uploadTextItem: (orderId: string, title: string, content: string) => Promise<MediaContent>
   fetchMediaItems: (orderId: string) => Promise<void>
 } | null>(null)
 
@@ -467,9 +468,52 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })
     return mediaItem
   }
+  const uploadTextItem = async (
+    orderId: string,
+    title: string,
+    content: string,
+  ): Promise<MediaContent> => {
+    const nfcContentId = await ensureNFCContent(orderId)
 
+    const token = localStorage.getItem("authToken")
+    if (!token) {
+      throw new Error("Not authenticated")
+    }
+
+    const response = await fetch("/api/media-items", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        nfc_content_id: nfcContentId,
+        type: "text",
+        title,
+        content,
+      }),
+    })
+
+    const data = await response.json()
+    if (!data.success || !data.mediaItem) {
+      throw new Error("Upload failed")
+    }
+    const mediaItem: MediaContent = {
+      id: data.mediaItem.id,
+      type: data.mediaItem.type,
+      title: data.mediaItem.title,
+      content: data.mediaItem.content,
+      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
+      duration: data.mediaItem.duration || undefined,
+      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
+    }
+
+    return mediaItem
+  }
   return (
-    <ContentContext.Provider value={{ state, dispatch, getOrderContent, uploadMedia, fetchMediaItems }}>
+    <ContentContext.Provider
+      value={{ state, dispatch, getOrderContent, uploadMedia, uploadTextItem, fetchMediaItems }}
+    >
       {children}
     </ContentContext.Provider>
   )
