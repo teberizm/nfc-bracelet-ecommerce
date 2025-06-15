@@ -438,7 +438,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
           payload: {
             orderId: id,
             content: {
-              orderId: id,,
+              orderId: id,
               mediaItems: items,
               selectedTheme: matchedTheme,
               isPublished: true,
