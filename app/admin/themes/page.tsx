@@ -190,7 +190,7 @@ export default function ThemesPage() {
 
   const handlePreviewTheme = (theme: Theme) => {
     // Demo sayfasına yönlendir - tema tipine göre
-    const demoUrl = `/demo/${theme.layout_config.type}`
+    const demoUrl = `/demo/${theme.slug}`
     window.open(demoUrl, "_blank")
   }
 

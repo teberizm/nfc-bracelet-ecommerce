@@ -79,7 +79,7 @@ const ContentContext = createContext<{
 // mockThemes array'ini güncelle:
 const mockThemes: Theme[] = [
   {
-    id: "love",
+    id: "eternal-love",
     name: "Eternal Love",
     description: "Sonsuz aşkınız için büyülü bir hikaye",
     preview: "/placeholder.svg?height=200&width=300&text=Eternal+Love",
@@ -98,7 +98,7 @@ const mockThemes: Theme[] = [
     isPremium: false,
   },
   {
-    id: "adventure",
+    id: "wild-adventure",
     name: "Wild Adventure",
     description: "Maceralarınızın epik hikayesi",
     preview: "/placeholder.svg?height=200&width=300&text=Wild+Adventure",
@@ -117,7 +117,7 @@ const mockThemes: Theme[] = [
     isPremium: false,
   },
   {
-    id: "memories",
+    id: "golden-memories",
     name: "Golden Memories",
     description: "Altın değerindeki anılarınız",
     preview: "/placeholder.svg?height=200&width=300&text=Golden+Memories",

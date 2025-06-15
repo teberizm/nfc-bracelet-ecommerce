@@ -57,11 +57,11 @@ export default function NFCPage({ params }: NFCPageProps) {
   useEffect(() => {
     if (!orderContent?.selectedTheme) return
 
-    if (orderContent.selectedTheme.id === "love") {
+    if (orderContent.selectedTheme.id === "eternal-love") {
       setShowHearts(true)
-    } else if (orderContent.selectedTheme.id === "adventure") {
+    } else if (orderContent.selectedTheme.id === "wild-adventure") {
       setShowStars(true)
-    } else if (orderContent.selectedTheme.id === "memories") {
+    } else if (orderContent.selectedTheme.id === "golden-memories") {
       setShowSparkles(true)
     }
   }, [orderContent?.selectedTheme])
