@@ -368,7 +368,12 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const fetchedOrdersRef = React.useRef<Set<string>>(new Set())
   const publicFetchedOrdersRef = React.useRef<Set<string>>(new Set())
   const getOrderContent = (orderId: string): OrderContent | undefined => {
-    const content = state.orderContents[orderId]
+    let content = state.orderContents[orderId]
+    if (!content) {
+      content = Object.values(state.orderContents).find(
+        (c) => c.nfcContentId === orderId,
+      )
+    }
 
     if (!content && !publicFetchedOrdersRef.current.has(orderId)) {
       publicFetchedOrdersRef.current.add(orderId)
@@ -379,11 +384,11 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       content &&
       content.nfcContentId &&
       content.mediaItems.length === 0 &&
-      !fetchedOrdersRef.current.has(orderId) &&
+       !fetchedOrdersRef.current.has(content.orderId) &&
       authState.isAuthenticated
     ) {
-      fetchedOrdersRef.current.add(orderId)
-      fetchMediaItems(orderId)
+      fetchedOrdersRef.current.add(content.orderId)
+      fetchMediaItems(content.orderId)
     }
     return content
   }
@@ -447,9 +452,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         dispatch({
           type: "SET_ORDER_CONTENT",
           payload: {
-            orderId: order_id,
+            orderId,
             content: {
-              orderId: order_id,
+              orderId,
               mediaItems: items,
               selectedTheme: matchedTheme,
               isPublished: true,
