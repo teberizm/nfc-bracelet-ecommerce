@@ -605,16 +605,16 @@ export async function getOrderById(orderId: string) {
 // NFC Content functions
 export async function createNFCContent(contentData: {
   order_id: string
-  theme_id: string
-  content: any
+  theme_id?: string | null
+  content?: any
 }) {
   try {
     const result = await sql`
        INSERT INTO nfc_content (order_id, theme_id, content)
       VALUES (
         ${contentData.order_id},
-        ${contentData.theme_id},
-        ${JSON.stringify(contentData.content)}
+        ${contentData.theme_id ?? null},
+        ${JSON.stringify(contentData.content ?? {})}
       )
       RETURNING *
     `

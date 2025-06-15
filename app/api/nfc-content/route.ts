@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Missing orderId" }, { status: 400 })
     }
-    }
+    
 
     const created = await createNFCContent({ order_id: orderId, theme_id: finalThemeId, content })
     const normalized = { ...created, themeId: created.theme_id }
