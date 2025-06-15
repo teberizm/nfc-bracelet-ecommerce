@@ -426,6 +426,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`/api/public/nfc-content/${id}`)
       const data = await response.json()
       if (data.success && data.orderContent) {
+        const orderId = data.orderContent.orderId
         const items: MediaContent[] = Array.isArray(data.orderContent.mediaItems)
           ? data.orderContent.mediaItems.map((item: any) => ({
               id: item.id,
@@ -446,9 +447,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         dispatch({
           type: "SET_ORDER_CONTENT",
           payload: {
-            orderId: id,
+            orderId,
             content: {
-              orderId: id,
+              orderId,
               mediaItems: items,
               selectedTheme: matchedTheme,
               isPublished: true,
