@@ -606,21 +606,21 @@ export async function getOrderById(orderId: string) {
 export async function createNFCContent(contentData: {
   order_id: string
   theme_id?: string | null
-  content?: any
+  customizations?: any
 }) {
   try {
     const result = await sql`
-       INSERT INTO nfc_content (order_id, theme_id, content)
+       INSERT INTO nfc_content (order_id, theme_id, customizations)
       VALUES (
         ${contentData.order_id},
         ${contentData.theme_id ?? null},
-        ${JSON.stringify(contentData.content ?? {})}
+        ${JSON.stringify(contentData.customizations ?? {})}
       )
       RETURNING *
     `
     return result[0]
   } catch (error) {
-    console.error("Error creating NFC content:", error)
+    console.error("Error creating NFC customizations:", error)
     throw error
   }
 }
@@ -632,7 +632,7 @@ export async function getNFCContentByOrderId(orderId: string) {
     `
     return result[0] || null
   } catch (error) {
-    console.error("Error getting NFC content by order id:", error)
+    console.error("Error getting NFC customizations by order id:", error)
     throw error
   }
 }
@@ -641,7 +641,7 @@ export async function updateNFCContent(
   orderId: string,
   contentData: {
     theme_id?: string
-    content?: any
+    customizations?: any
   },
 ) {
   try {
@@ -653,10 +653,9 @@ export async function updateNFCContent(
       values.push(contentData.theme_id)
     }
 
-    if (contentData.content) {
-      updates.push("content = $" + (values.length + 1))
-      values.push(JSON.stringify(contentData.content))
-    }
+    if (contentData.customizations) {
+      updates.push("customizations = $" + (values.length + 1))
+      values.push(JSON.stringify(contentData.customizations))
 
     if (updates.length === 0) {
       throw new Error("No updates provided")

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { orderId, themeId, theme, content } = body
+    const { orderId, themeId, theme, customizations } = body
     const finalThemeId = themeId || theme || null
 
     if (!orderId) {
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
     
 
-    const created = await createNFCContent({ order_id: orderId, theme_id: finalThemeId, content })
+    const created = await createNFCContent({ order_id: orderId, theme_id: finalThemeId, customizations })
     const normalized = { ...created, themeId: created.theme_id }
     return NextResponse.json({ success: true, nfcContent: normalized })
   } catch (error) {
@@ -45,14 +45,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { orderId, themeId, theme, content } = body
+    const { orderId, themeId, theme, customizations } = body
     const finalThemeId = themeId || theme
 
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Missing orderId" }, { status: 400 })
     }
 
-    const updated = await updateNFCContent(orderId, { theme_id: finalThemeId, content })
+    const updated = await updateNFCContent(orderId, { theme_id: finalThemeId, customizations })
     const normalized = { ...updated, themeId: updated.theme_id }
     return NextResponse.json({ success: true, nfcContent: normalized })
   } catch (error) {
