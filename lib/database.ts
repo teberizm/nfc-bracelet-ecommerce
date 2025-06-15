@@ -611,9 +611,8 @@ export async function createNFCContent(contentData: {
   try {
     const id = uuidv4()
     const result = await sql`
-       INSERT INTO nfc_content (id, order_id, theme_id, customizations)
+       INSERT INTO nfc_content (order_id, theme_id, customizations)
       VALUES (
-        ${id},
         ${contentData.order_id},
         ${contentData.theme_id ?? null},
         ${JSON.stringify(contentData.customizations ?? {})}
