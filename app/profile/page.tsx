@@ -38,17 +38,15 @@ import { toast } from "@/hooks/use-toast"
 export default function ProfilePage() {
   const { state, dispatch, logout } = useAuth()
   const router = useRouter()
+
   const [isEditing, setIsEditing] = useState(false)
   const [editedUser, setEditedUser] = useState<AuthUser | null>(null)
   const [nfcStates, setNfcStates] = useState<
-    Record<
-      string,
-      {
-        contentUploaded: boolean
-        themeSelected: boolean
-        useSameContent: boolean
-      }
-    >
+    Record<string, {
+      contentUploaded: boolean
+      themeSelected: boolean
+      useSameContent: boolean
+    }>
   >({})
 
   useEffect(() => {
@@ -62,6 +60,28 @@ export default function ProfilePage() {
       setEditedUser(state.user)
     }
   }, [state.user])
+
+  useEffect(() => {
+    async function initializeNfcStates() {
+      const updates: Record<string, { contentUploaded: boolean; themeSelected: boolean; useSameContent: boolean }> = {}
+      state.orders.forEach(order => {
+        const items = expandOrderItems(order)
+        items.forEach(item => {
+          updates[item.itemIndex] = {
+            contentUploaded: false,
+            themeSelected: false,
+            useSameContent: false,
+          }
+        })
+      })
+      if (Object.keys(updates).length > 0) {
+        setNfcStates(prev => ({ ...prev, ...updates }))
+      }
+    }
+    if (state.orders.length > 0) {
+      initializeNfcStates()
+    }
+  }, [state.orders])
 
   if (state.isLoading) {
     return (
@@ -97,7 +117,7 @@ export default function ProfilePage() {
   }
 
   const handleUseSameContent = (itemKey: string, checked: boolean) => {
-    setNfcStates((prev) => ({
+    setNfcStates(prev => ({
       ...prev,
       [itemKey]: {
         ...prev[itemKey],
@@ -159,60 +179,27 @@ export default function ProfilePage() {
     }
   }
 
-  // Siparişleri ayrıştır - her ürünü quantity kadar tekrarla
   function expandOrderItems(order: any) {
     const expandedItems: any[] = []
-
     order.items.forEach((item: any, itemIndex: number) => {
       for (let i = 0; i < item.quantity; i++) {
         expandedItems.push({
           ...item,
           quantity: 1,
           itemIndex: `${order.id}-${itemIndex}-${i}`,
-          displayName: item.quantity > 1 ? `${item.productName} - ${i + 1}. Bileklik` : item.productName,
+          displayName:
+            item.quantity > 1
+              ? `${item.productName} - ${i + 1}. Bileklik`
+              : item.productName,
           isMultiple: item.quantity > 1,
           currentIndex: i,
           totalCount: item.quantity,
         })
       }
     })
-
     return expandedItems
   }
-  useEffect(() => {
-    async function initializeNfcStates() {
-      const updates: Record<string, { contentUploaded: boolean; themeSelected: boolean; useSameContent: boolean }> = {}
 
-      await Promise.all(
-        state.orders.map(async (order) => {
-          try {
-            const res = await fetch(`/api/public/nfc-content/${order.id}`)
-            if (res.status === 200) {
-              const items = expandOrderItems(order)
-              items.forEach((item: any) => {
-                updates[item.itemIndex] = {
-                  contentUploaded: true,
-                  themeSelected: false,
-                  useSameContent: false,
-                }
-              })
-            }
-          } catch (error) {
-            console.error("NFC içeriği kontrol hatası:", error)
-          }
-        }),
-      )
-
-      if (Object.keys(updates).length > 0) {
-        setNfcStates((prev) => ({ ...prev, ...updates }))
-      }
-    }
-
-    if (state.orders.length > 0) {
-      initializeNfcStates()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.orders])
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
@@ -283,8 +270,8 @@ export default function ProfilePage() {
                       <Input
                         id="firstName"
                         value={editedUser?.firstName || ""}
-                        onChange={(e) =>
-                          setEditedUser((prev) => (prev ? { ...prev, firstName: e.target.value } : null))
+                        onChange={e =>
+                          setEditedUser(prev => (prev ? { ...prev, firstName: e.target.value } : null))
                         }
                         className="pl-10"
                         disabled={!isEditing}
@@ -299,7 +286,9 @@ export default function ProfilePage() {
                       <Input
                         id="lastName"
                         value={editedUser?.lastName || ""}
-                        onChange={(e) => setEditedUser((prev) => (prev ? { ...prev, lastName: e.target.value } : null))}
+                        onChange={e =>
+                          setEditedUser(prev => (prev ? { ...prev, lastName: e.target.value } : null))
+                        }
                         className="pl-10"
                         disabled={!isEditing}
                       />
@@ -315,7 +304,9 @@ export default function ProfilePage() {
                       id="email"
                       type="email"
                       value={editedUser?.email || ""}
-                      onChange={(e) => setEditedUser((prev) => (prev ? { ...prev, email: e.target.value } : null))}
+                      onChange={e =>
+                        setEditedUser(prev => (prev ? { ...prev, email: e.target.value } : null))
+                      }
                       className="pl-10"
                       disabled={!isEditing}
                     />
@@ -329,7 +320,9 @@ export default function ProfilePage() {
                     <Input
                       id="phone"
                       value={editedUser?.phone || ""}
-                      onChange={(e) => setEditedUser((prev) => (prev ? { ...prev, phone: e.target.value } : null))}
+                      onChange={e =>
+                        setEditedUser(prev => (prev ? { ...prev, phone: e.target.value } : null))
+                      }
                       className="pl-10"
                       disabled={!isEditing}
                     />
