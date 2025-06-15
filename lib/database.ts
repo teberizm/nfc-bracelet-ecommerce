@@ -663,6 +663,23 @@ export async function getNFCContentByOrderIdPublic(orderId: string) {
     throw error
   }
 }
+
+export async function getNFCContentByIdPublic(id: string) {
+  try {
+    const result = await sql`
+      SELECT nc.*, t.slug AS theme, t.name AS theme_name
+      FROM nfc_content nc
+      LEFT JOIN nfc_themes t ON nc.theme_id = t.id
+      WHERE nc.id = ${id}
+      LIMIT 1
+    `
+    return result[0] || null
+  } catch (error) {
+    console.error("Error getting NFC content by id (public):", error)
+    throw error
+  }
+}
+
 export async function updateNFCContent(
   orderId: string,
   contentData: {

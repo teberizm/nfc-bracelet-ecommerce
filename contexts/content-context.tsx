@@ -411,9 +411,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const fetchPublicOrderContent = async (orderId: string): Promise<void> => {
+  const fetchPublicOrderContent = async (id: string): Promise<void> => {
     try {
-      const response = await fetch(`/api/public/nfc-content/${orderId}`)
+      const response = await fetch(`/api/public/nfc-content/${id}`)
       const data = await response.json()
       if (data.success && data.orderContent) {
         const items: MediaContent[] = Array.isArray(data.orderContent.mediaItems)
@@ -436,9 +436,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         dispatch({
           type: "SET_ORDER_CONTENT",
           payload: {
-            orderId,
+            orderId: id,
             content: {
-              orderId,
+              orderId: id,,
               mediaItems: items,
               selectedTheme: matchedTheme,
               isPublished: true,

@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server"
-import { getNFCContentByOrderIdPublic, getMediaItemsByContentId } from "@/lib/database"
+import {
+  getNFCContentByOrderIdPublic,
+  getNFCContentByIdPublic,
+  getMediaItemsByContentId,
+} from "@/lib/database"
 
-export async function GET(request: Request, { params }: { params: { orderId: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { orderId } = params
-    if (!orderId) {
-      return NextResponse.json({ success: false, message: "Missing order id" }, { status: 400 })
+    const { id } = params
+    if (!id) {
+      return NextResponse.json({ success: false, message: "Missing id" }, { status: 400 })
     }
 
-    const content = await getNFCContentByOrderIdPublic(orderId)
+    let content = await getNFCContentByOrderIdPublic(id)
+    if (!content) {
+      content = await getNFCContentByIdPublic(id)
+    }
     if (!content) {
       return NextResponse.json({ success: false, message: "Content not found" }, { status: 404 })
     }
@@ -39,7 +46,7 @@ export async function GET(request: Request, { params }: { params: { orderId: str
       },
     })
   } catch (error) {
-    console.error("Error in GET /api/public/nfc-content/[orderId]:", error)
-    return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
+    console.error("Error in GET /api/public/nfc-content/[id]:", error)
+     return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })
   }
 }
