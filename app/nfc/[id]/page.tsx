@@ -178,7 +178,7 @@ export default function NFCPage({ params }: NFCPageProps) {
   const layoutSections = createAutoLayout()
 
   // Eternal Love Theme
-  if (selectedTheme.id === "love") {
+  if (selectedTheme.id === "eternal-love") {
     return (
       <div className="min-h-screen relative overflow-hidden">
         {/* Animated Background */}
@@ -623,7 +623,7 @@ export default function NFCPage({ params }: NFCPageProps) {
   }
 
   // Wild Adventure Theme
-  if (selectedTheme.id === "adventure") {
+  if (selectedTheme.id === "wild-adventure") {
     return (
       <div className="min-h-screen relative overflow-hidden">
         {/* Dynamic Background */}
@@ -974,7 +974,7 @@ export default function NFCPage({ params }: NFCPageProps) {
   }
 
   // Golden Memories Theme
-  if (selectedTheme.id === "memories") {
+  if (selectedTheme.id === "golden-memories") {
     return (
       <div className="min-h-screen relative overflow-hidden">
         {/* Elegant Background */}
