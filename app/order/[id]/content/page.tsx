@@ -45,7 +45,14 @@ interface TextItem {
 
 export default function ContentUploadPage({ params }: ContentUploadPageProps) {
   const { state: authState } = useAuth()
-  const { state, dispatch, getOrderContent, uploadMedia, uploadTextItem } = useContent()
+  const {
+    state,
+    dispatch,
+    getOrderContent,
+    uploadMedia,
+    uploadAudioBlob,
+    uploadTextItem,
+  } = useContent()
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -218,7 +225,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     }
   }
 
-  const saveRecording = () => {
+  const saveRecording = async () => {
     if (!recordedAudio || !audioTitle.trim()) {
       toast({
         title: "Eksik Bilgi",
@@ -228,27 +235,29 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
       return
     }
 
-    const audioUrl = URL.createObjectURL(recordedAudio)
-    const mediaItem: MediaContent = {
-      id: Date.now().toString(),
-      type: "audio",
-      title: audioTitle,
-      content: audioUrl,
-      duration: recordingTime,
-      createdAt: new Date().toISOString(),
+    try {
+      const item = await uploadAudioBlob(
+        orderId,
+        recordedAudio,
+        audioTitle,
+        recordingTime,
+      )
+      dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item } })
+      toast({
+        title: "Ses Kaydı Eklendi!",
+        description: "Ses kaydınız başarıyla eklendi.",
+      })
+    } catch (error) {
+      toast({
+        title: "Yükleme Hatası",
+        description: "Ses kaydı yüklenirken bir hata oluştu.",
+        variant: "destructive",
+      })
+    } finally {
+      setRecordedAudio(null)
+      setAudioTitle("")
+      setRecordingTime(0)
     }
-
-    dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })
-
-    // Temizle
-    setRecordedAudio(null)
-    setAudioTitle("")
-    setRecordingTime(0)
-
-    toast({
-      title: "Ses Kaydı Eklendi!",
-      description: "Ses kaydınız başarıyla eklendi.",
-    })
   }
 
   // YouTube müzik ekleme
