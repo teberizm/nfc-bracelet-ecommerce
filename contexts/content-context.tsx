@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useReducer, type ReactNode } from "react"
+import React, { createContext, useContext, useReducer, type ReactNode } from "react"
 
 export interface MediaContent {
   id: string
@@ -344,8 +343,20 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     isLoading: false,
   })
 
+  const fetchedOrdersRef = React.useRef<Set<string>>(new Set())
+  
   const getOrderContent = (orderId: string): OrderContent | undefined => {
-    return state.orderContents[orderId]
+    const content = state.orderContents[orderId]
+    if (
+      content &&
+      content.nfcContentId &&
+      content.mediaItems.length === 0 &&
+      !fetchedOrdersRef.current.has(orderId)
+    ) {
+      fetchedOrdersRef.current.add(orderId)
+      fetchMediaItems(orderId)
+    }
+    return content
   }
   const fetchMediaItems = async (orderId: string): Promise<void> => {
     const content = state.orderContents[orderId]
@@ -355,7 +366,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem("authToken")
       if (!token) return
 
-      const response = await fetch(`/api/media-items?contentId=${content.nfcContentId}`, {
+      const response = await fetch(`/api/media-items?nfcContentId=${content.nfcContentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await response.json()
