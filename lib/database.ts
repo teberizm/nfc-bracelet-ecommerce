@@ -619,6 +619,12 @@ export async function createNFCContent(contentData: {
   customizations?: any
 }) {
   try {
+    const existing = await sql`
+      SELECT * FROM nfc_content WHERE order_id = ${contentData.order_id} LIMIT 1
+    `
+    if (existing.length > 0) {
+      return existing[0]
+    }
     const id = uuidv4()
     const result = await sql`
        INSERT INTO nfc_content (id, order_id, theme_id, customizations)
