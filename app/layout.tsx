@@ -1,3 +1,5 @@
+"use client"
+
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
@@ -9,6 +11,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/contexts/auth-context"
 import { ContentProvider } from "@/contexts/content-context"
 import { AdminProvider } from "@/contexts/admin-context"
+import { usePathname } from "next/navigation"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -24,6 +27,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const simpleLayout = pathname.startsWith("/demo") || pathname.startsWith("/nfc")
+
   return (
     <html lang="tr">
       <body className={inter.className}>
@@ -31,10 +37,19 @@ export default function RootLayout({
           <AdminProvider>
             <CartProvider>
               <ContentProvider>
-                <Header />
-                <main>{children}</main>
-                <Footer />
-                <Toaster />
+                 {simpleLayout ? (
+                  <>
+                    <main>{children}</main>
+                    <Toaster />
+                  </>
+                ) : (
+                  <>
+                    <Header />
+                    <main>{children}</main>
+                    <Footer />
+                    <Toaster />
+                  </>
+                )}
               </ContentProvider>
             </CartProvider>
           </AdminProvider>
