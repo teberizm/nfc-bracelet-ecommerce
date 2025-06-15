@@ -30,11 +30,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
   const [selectedCoverPhoto, setSelectedCoverPhoto] = useState<MediaContent | null>(null)
   const [showCoverSelector, setShowCoverSelector] = useState(false)
   const [previewDevice, setPreviewDevice] = useState<"mobile" | "tablet" | "desktop">("mobile")
-  const [customizations, setCustomizations] = useState({
-    fontSize: 16,
-    spacing: 10,
-    borderRadius: 8,
-  })
+  
 
   const orderId = params.id
   const orderContent = getOrderContent(orderId)
@@ -123,11 +119,6 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
       return
     }
 
-    // Özelleştirmeleri kaydet
-    dispatch({
-      type: "UPDATE_CUSTOMIZATIONS",
-      payload: { orderId, customizations },
-    })
 
      try {
       const token = localStorage.getItem("authToken")
@@ -137,7 +128,6 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
         orderId,
         theme: selectedTheme.id,
         content: {
-          customizations,
           coverPhotoId: selectedCoverPhoto?.id,
         },
       }
@@ -350,48 +340,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
               </Card>
             )}
 
-            {/* Özelleştirme */}
-            {selectedTheme && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle className="text-lg">Özelleştirme</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label>Yazı Boyutu: {customizations.fontSize}px</Label>
-                    <Slider
-                      value={[customizations.fontSize]}
-                      onValueChange={([value]) => setCustomizations((prev) => ({ ...prev, fontSize: value }))}
-                      min={12}
-                      max={24}
-                      step={1}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Boşluk: {customizations.spacing}px</Label>
-                    <Slider
-                      value={[customizations.spacing]}
-                      onValueChange={([value]) => setCustomizations((prev) => ({ ...prev, spacing: value }))}
-                      min={5}
-                      max={20}
-                      step={1}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Köşe Yuvarlaklığı: {customizations.borderRadius}px</Label>
-                    <Slider
-                      value={[customizations.borderRadius]}
-                      onValueChange={([value]) => setCustomizations((prev) => ({ ...prev, borderRadius: value }))}
-                      min={0}
-                      max={20}
-                      step={1}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          
           </div>
 
           {/* Orta - Önizleme */}
@@ -442,7 +391,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
                           background: selectedTheme.layout.backgroundColor,
                           color: selectedTheme.layout.textColor,
                           fontFamily: selectedTheme.layout.fontFamily,
-                          fontSize: `${customizations.fontSize}px`,
+                         
                         }}
                       >
                         {/* Kapak Fotoğrafı Önizleme */}
@@ -494,8 +443,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
                               className="p-2 rounded text-xs"
                               style={{
                                 backgroundColor: `${selectedTheme.layout.accentColor}20`,
-                                borderRadius: `${customizations.borderRadius}px`,
-                                marginBottom: `${customizations.spacing}px`,
+                                
                               }}
                             >
                               <div className="flex items-center gap-2 mb-1">

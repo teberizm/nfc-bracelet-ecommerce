@@ -35,7 +35,6 @@ export interface OrderContent {
   orderId: string
   mediaItems: MediaContent[]
   selectedTheme?: Theme
-  customizations?: Record<string, any>
   isPublished: boolean
   nfcUrl?: string
   nfcContentId?: string
@@ -53,7 +52,6 @@ type ContentAction =
   | { type: "REMOVE_MEDIA_ITEM"; payload: { orderId: string; itemId: string } }
   | { type: "UPDATE_MEDIA_ITEM"; payload: { orderId: string; itemId: string; updates: Partial<MediaContent> } }
   | { type: "SELECT_THEME"; payload: { orderId: string; theme: Theme } }
-  | { type: "UPDATE_CUSTOMIZATIONS"; payload: { orderId: string; customizations: Record<string, any> } }
   | { type: "PUBLISH_CONTENT"; payload: { orderId: string } }
   | { type: "SET_NFC_CONTENT_ID"; payload: { orderId: string; nfcContentId: string } }
   | { type: "SET_LOADING"; payload: boolean }
@@ -201,19 +199,6 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
         },
       }
 
-    case "UPDATE_CUSTOMIZATIONS":
-      const contentForCustom = state.orderContents[action.payload.orderId]
-      if (!contentForCustom) return state
-      return {
-        ...state,
-        orderContents: {
-          ...state.orderContents,
-          [action.payload.orderId]: {
-            ...contentForCustom,
-            customizations: action.payload.customizations,
-          },
-        },
-      }
 
     case "PUBLISH_CONTENT":
       const contentToPublish = state.orderContents[action.payload.orderId]
