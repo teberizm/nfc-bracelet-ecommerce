@@ -210,7 +210,7 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
           [action.payload.orderId]: {
             ...contentToPublish,
             isPublished: true,
-            nfcUrl: `https://nfc.example.com/${action.payload.orderId}`,
+            nfcUrl: `https://nfc-bracelet-ecommerce-mvls.vercel.app/${action.payload.orderId}`,
           },
         },
       }
