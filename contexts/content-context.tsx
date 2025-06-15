@@ -11,6 +11,7 @@ export interface MediaContent {
   thumbnail?: string
   duration?: number // for video/audio
   createdAt: string
+
 }
 
 export interface Theme {
@@ -39,6 +40,7 @@ export interface OrderContent {
   customizations?: Record<string, any>
   isPublished: boolean
   nfcUrl?: string
+  nfcContentId?: string
 }
 
 interface ContentState {
@@ -62,6 +64,7 @@ const ContentContext = createContext<{
   dispatch: React.Dispatch<ContentAction>
   getOrderContent: (orderId: string) => OrderContent | undefined
   uploadMedia: (orderId: string, file: File, type: MediaContent["type"], title: string) => Promise<MediaContent>
+  fetchMediaItems: (orderId: string) => Promise<void>
 } | null>(null)
 
 // mockThemes array'ini güncelle:
@@ -247,6 +250,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       // Demo sipariş ekleyelim
       "demo-love-order": {
         orderId: "demo-love-order",
+        nfcContentId: "demo-love-content",
         mediaItems: [
           {
             id: "1",
@@ -344,7 +348,39 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const getOrderContent = (orderId: string): OrderContent | undefined => {
     return state.orderContents[orderId]
   }
+  const fetchMediaItems = async (orderId: string): Promise<void> => {
+    const content = state.orderContents[orderId]
+    if (!content?.nfcContentId) return
 
+    try {
+      const token = localStorage.getItem("authToken")
+      if (!token) return
+
+      const response = await fetch(`/api/media-items?contentId=${content.nfcContentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await response.json()
+
+      if (data.success && Array.isArray(data.items)) {
+        const items: MediaContent[] = data.items.map((item: any) => ({
+          id: item.id,
+          type: item.type,
+          title: item.title,
+          content: item.content,
+          thumbnail: item.thumbnail_url || undefined,
+          duration: item.duration || undefined,
+          createdAt: item.created_at,
+        }))
+
+        dispatch({
+          type: "SET_ORDER_CONTENT",
+          payload: { orderId, content: { ...content, mediaItems: items } },
+        })
+      }
+    } catch (error) {
+      console.error("Fetch media items error:", error)
+    }
+  }
   const uploadMedia = async (
     orderId: string,
     file: File,
@@ -352,16 +388,40 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     title: string,
   ): Promise<MediaContent> => {
     // Mock file upload (gerçek uygulamada cloud storage'a yüklenecek)
-    const mockUrl = URL.createObjectURL(file)
+   const content = state.orderContents[orderId]
+    if (!content?.nfcContentId) {
+      throw new Error("Missing NFC content id")
+    }
 
+    const token = localStorage.getItem("authToken")
+    if (!token) {
+      throw new Error("Not authenticated")
+    }
+
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("nfc_content_id", content.nfcContentId)
+    formData.append("type", type)
+    formData.append("title", title)
+
+    const response = await fetch("/api/media-items", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+
+    const data = await response.json()
+    if (!data.success || !data.mediaItem) {
+      throw new Error("Upload failed")
+    }
     const mediaItem: MediaContent = {
-      id: Date.now().toString(),
-      type,
-      title,
-      content: mockUrl,
-      thumbnail: type === "video" ? mockUrl : undefined,
-      duration: type === "video" || type === "audio" ? Math.floor(Math.random() * 300) + 30 : undefined,
-      createdAt: new Date().toISOString(),
+      id: data.mediaItem.id,
+      type: data.mediaItem.type,
+      title: data.mediaItem.title,
+      content: data.mediaItem.content,
+      thumbnail: data.mediaItem.thumbnail_url || undefined,
+      duration: data.mediaItem.duration || undefined,
+      createdAt: data.mediaItem.created_at,
     }
 
     dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })
@@ -369,7 +429,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ContentContext.Provider value={{ state, dispatch, getOrderContent, uploadMedia }}>
+    <ContentContext.Provider value={{ state, dispatch, getOrderContent, uploadMedia, fetchMediaItems }}>
       {children}
     </ContentContext.Provider>
   )

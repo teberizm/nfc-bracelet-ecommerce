@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -45,7 +45,7 @@ interface TextItem {
 
 export default function ContentUploadPage({ params }: ContentUploadPageProps) {
   const { state: authState } = useAuth()
-  const { state, dispatch, getOrderContent, uploadMedia } = useContent()
+  const { state, dispatch, getOrderContent, uploadMedia, fetchMediaItems } = useContent()
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -70,7 +70,11 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
   const orderId = params.id
   const orderContent = getOrderContent(orderId)
   const order = authState.orders.find((o) => o.id === orderId)
-
+  useEffect(() => {
+    if (orderContent && orderContent.mediaItems.length === 0) {
+      fetchMediaItems(orderId)
+    }
+  }, [orderContent, orderId, fetchMediaItems])
   if (!order) {
     return (
       <div className="container mx-auto px-4 py-8">
