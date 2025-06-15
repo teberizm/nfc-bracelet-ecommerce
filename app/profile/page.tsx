@@ -10,7 +10,6 @@ import {
   Phone,
   MapPin,
   Package,
-  Settings,
   LogOut,
   Edit,
   Save,
@@ -161,7 +160,7 @@ export default function ProfilePage() {
   }
 
   // Siparişleri ayrıştır - her ürünü quantity kadar tekrarla
-  const expandOrderItems = (order: any) => {
+  function expandOrderItems(order: any) {
     const expandedItems: any[] = []
 
     order.items.forEach((item: any, itemIndex: number) => {
@@ -180,7 +179,40 @@ export default function ProfilePage() {
 
     return expandedItems
   }
+  useEffect(() => {
+    async function initializeNfcStates() {
+      const updates: Record<string, { contentUploaded: boolean; themeSelected: boolean; useSameContent: boolean }> = {}
 
+      await Promise.all(
+        state.orders.map(async (order) => {
+          try {
+            const res = await fetch(`/api/public/nfc-content/${order.id}`)
+            if (res.status === 200) {
+              const items = expandOrderItems(order)
+              items.forEach((item: any) => {
+                updates[item.itemIndex] = {
+                  contentUploaded: true,
+                  themeSelected: false,
+                  useSameContent: false,
+                }
+              })
+            }
+          } catch (error) {
+            console.error("NFC içeriği kontrol hatası:", error)
+          }
+        }),
+      )
+
+      if (Object.keys(updates).length > 0) {
+        setNfcStates((prev) => ({ ...prev, ...updates }))
+      }
+    }
+
+    if (state.orders.length > 0) {
+      initializeNfcStates()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.orders])
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
@@ -534,45 +566,14 @@ export default function ProfilePage() {
                                           )}
                                         </Button>
 
-                                        <Button
-                                          variant={currentNfcState.themeSelected ? "secondary" : "outline"}
-                                          size="sm"
-                                          asChild={
-                                            (currentNfcState.contentUploaded || currentNfcState.useSameContent) &&
-                                            !currentNfcState.themeSelected
-                                          }
-                                          disabled={
-                                            (!currentNfcState.contentUploaded && !currentNfcState.useSameContent) ||
-                                            currentNfcState.themeSelected
-                                          }
-                                        >
-                                          {currentNfcState.themeSelected ? (
-                                            <>
-                                              <CheckCircle className="h-4 w-4 mr-2" />
-                                              Tema Hazır
-                                            </>
-                                          ) : currentNfcState.contentUploaded || currentNfcState.useSameContent ? (
-                                            <Link href={`/order/${order.id}/theme?item=${itemKey}`}>
-                                              <Settings className="h-4 w-4 mr-2" />
-                                              Tema Seç ve Düzenle
+                                         {currentNfcState.contentUploaded && (
+                                          <Button variant="outline" size="sm" asChild>
+                                            <Link href={`/order/${order.id}/preview?item=${itemKey}`}>
+                                              <Eye className="h-4 w-4 mr-2" />
+                                              Görüntüle
                                             </Link>
-                                          ) : (
-                                            <>
-                                              <Settings className="h-4 w-4 mr-2" />
-                                              Tema Seç ve Düzenle
-                                            </>
-                                          )}
-                                        </Button>
-
-                                        {(currentNfcState.contentUploaded || currentNfcState.useSameContent) &&
-                                          currentNfcState.themeSelected && (
-                                            <Button variant="outline" size="sm" asChild>
-                                              <Link href={`/order/${order.id}/preview?item=${itemKey}`}>
-                                                <Eye className="h-4 w-4 mr-2" />
-                                                Görüntüle
-                                              </Link>
-                                            </Button>
-                                          )}
+                                          </Button>
+                                        )}
                                       </div>
                                     </div>
                                   )}

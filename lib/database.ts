@@ -554,7 +554,9 @@ export async function createOrderItem(itemData: {
 export async function getOrdersByUserId(userId: string) {
   try {
     const result = await sql`
-      SELECT o.*, 
+      SELECT o.*,
+          EXISTS(SELECT 1 FROM nfc_content nc WHERE nc.order_id = o.id) AS nfc_content_uploaded,
+             EXISTS(SELECT 1 FROM nfc_content nc WHERE nc.order_id = o.id AND nc.theme_id IS NOT NULL) AS theme_selected, 
              COALESCE(
                (SELECT json_agg(
                  json_build_object(

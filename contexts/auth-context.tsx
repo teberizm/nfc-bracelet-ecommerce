@@ -40,8 +40,8 @@ export interface Order {
     zipCode: string
     country: string
   }
-  nfcContentUploaded?: boolean
-  themeSelected?: boolean
+  nfcContentUploaded: boolean
+  themeSelected: boolean
 }
 
 interface AuthState {
