@@ -357,9 +357,15 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   })
 
   const fetchedOrdersRef = React.useRef<Set<string>>(new Set())
-  
+  const publicFetchedOrdersRef = React.useRef<Set<string>>(new Set())
   const getOrderContent = (orderId: string): OrderContent | undefined => {
     const content = state.orderContents[orderId]
+
+    if (!content && !publicFetchedOrdersRef.current.has(orderId)) {
+      publicFetchedOrdersRef.current.add(orderId)
+      fetchPublicOrderContent(orderId)
+      return undefined
+    }
     if (
       content &&
       content.nfcContentId &&
@@ -402,6 +408,47 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Fetch media items error:", error)
+    }
+  }
+
+  const fetchPublicOrderContent = async (orderId: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/public/nfc-content/${orderId}`)
+      const data = await response.json()
+      if (data.success && data.orderContent) {
+        const items: MediaContent[] = Array.isArray(data.orderContent.mediaItems)
+          ? data.orderContent.mediaItems.map((item: any) => ({
+              id: item.id,
+              type: item.type,
+              title: item.title,
+              content: item.content,
+              thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || undefined,
+              duration: item.duration || undefined,
+              createdAt: item.createdAt || item.created_at,
+            }))
+          : []
+
+        const themeSlug = data.orderContent.theme?.slug
+        const matchedTheme = themeSlug
+          ? state.availableThemes.find((t) => t.id === themeSlug)
+          : undefined
+
+        dispatch({
+          type: "SET_ORDER_CONTENT",
+          payload: {
+            orderId,
+            content: {
+              orderId,
+              mediaItems: items,
+              selectedTheme: matchedTheme,
+              isPublished: true,
+              nfcContentId: data.orderContent.nfcContentId,
+            },
+          },
+        })
+      }
+    } catch (error) {
+      console.error("Fetch public order content error:", error)
     }
   }
   const ensureNFCContent = async (orderId: string): Promise<string> => {
@@ -629,6 +676,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         uploadAudioBlob,
         uploadTextItem,
         uploadYouTubeUrl,
+        fetchPublicOrderContent,
         fetchMediaItems,
       }}
     >
