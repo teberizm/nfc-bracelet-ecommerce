@@ -928,10 +928,18 @@ export async function getAllNFCContentForAdmin(filters: {
     queryParams.push(limit, offset)
 
     const query = `
-      SELECT nc.*, o.order_number, u.first_name, u.last_name, u.email
+      SELECT
+        nc.*,
+        t.slug AS theme,
+        t.name AS theme_name,
+        o.order_number,
+        u.first_name,
+        u.last_name,
+        u.email
       FROM nfc_content nc
       JOIN orders o ON nc.order_id = o.id
       JOIN users u ON o.user_id = u.id
+      LEFT JOIN nfc_themes t ON nc.theme_id = t.id
       ${whereClause}
       ORDER BY nc.created_at DESC
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
