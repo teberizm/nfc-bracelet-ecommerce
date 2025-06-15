@@ -591,15 +591,14 @@ export default function ProfilePage() {
                                           )}
                                         </Button>
 
-                                        {(currentNfcState.contentUploaded || currentNfcState.useSameContent) &&
-                                          currentNfcState.themeSelected && (
+                                         
                                             <Button variant="outline" size="sm" asChild>
                                               <Link href={`/order/${order.id}/preview?item=${itemKey}`}>
                                                 <Eye className="h-4 w-4 mr-2" />
                                                 Görüntüle
                                               </Link>
                                             </Button>
-                                          )}
+                                          
                                       </div>
                                     </div>
                                   )}
