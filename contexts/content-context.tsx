@@ -4,7 +4,7 @@ import React, { createContext, useContext, useReducer, type ReactNode } from "re
 import { useAuth } from "./auth-context"
 export interface MediaContent {
   id: string
-  type: "image" | "video" | "audio" | "text"
+  type: "image" | "video" | "audio" | "text" | "youtube"
   title: string
   content: string // URL for media, text content for text type
   thumbnailUrl?: string
@@ -23,7 +23,7 @@ export interface Theme {
     accentColor: string
     fontFamily: string
     sections: Array<{
-      type: "header" | "gallery" | "text" | "audio" | "video"
+      type: "header" | "gallery" | "text" | "audio" | "video" | "youtube"
       position: { x: number; y: number; width: number; height: number }
       style?: Record<string, any>
     }>
@@ -220,6 +220,10 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
     case "PUBLISH_CONTENT":
       const contentToPublish = state.orderContents[action.payload.orderId]
       if (!contentToPublish) return state
+        const storedNfcContentId = contentToPublish.nfcContentId
+      const nfcUrl = storedNfcContentId
+        ? `https://nfc-bracelet-ecommerce-mvls.vercel.app/nfc/${storedNfcContentId}`
+        : `https://nfc-bracelet-ecommerce-mvls.vercel.app/nfc/${action.payload.orderId}`
       return {
         ...state,
         orderContents: {
@@ -227,7 +231,7 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
           [action.payload.orderId]: {
             ...contentToPublish,
             isPublished: true,
-            nfcUrl: `https://nfc-bracelet-ecommerce-mvls.vercel.app/nfc/${action.payload.orderId}`,
+            nfcUrl,
           },
         },
       }
@@ -660,7 +664,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       },
       body: JSON.stringify({
         nfc_content_id: nfcContentId,
-        type: "audio",
+        type: "youtube",
         title,
         content: url,
         thumbnail_url: thumbnailUrl,

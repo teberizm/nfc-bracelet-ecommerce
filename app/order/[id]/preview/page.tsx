@@ -150,6 +150,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
                         <div className="w-15 h-15 bg-gray-200 rounded flex items-center justify-center">
                           {item.type === "video" && <div className="w-4 h-4 bg-red-500 rounded" />}
                           {item.type === "audio" && <div className="w-4 h-4 bg-blue-500 rounded" />}
+                          {item.type === "youtube" && <div className="w-4 h-4 bg-blue-500 rounded" />}
                           {item.type === "text" && <div className="w-4 h-4 bg-purple-500 rounded" />}
                         </div>
                       )}
@@ -170,7 +171,9 @@ export default function PreviewPage({ params }: PreviewPageProps) {
                             ? "Video"
                             : item.type === "audio"
                               ? "Ses"
-                              : "Metin"}
+                               : item.type === "youtube"
+                                ? "YouTube"
+                                : "Metin"}
                       </Badge>
                     </div>
                   ))}

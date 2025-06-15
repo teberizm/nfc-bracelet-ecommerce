@@ -336,6 +336,8 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
         return <Video className="h-4 w-4" />
       case "audio":
         return <Music className="h-4 w-4" />
+      case "youtube":
+        return <Music className="h-4 w-4" />
       case "text":
         return <FileText className="h-4 w-4" />
       default:
@@ -706,7 +708,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
                                     ? `${item.content.length} karakter`
                                     : item.duration
                                       ? formatDuration(item.duration)
-                                      : item.type === "audio" && item.content.includes("youtube")
+                                       : item.type === "youtube"
                                         ? "YouTube Müzik"
                                         : "Medya dosyası"}
                                 </p>
@@ -718,7 +720,9 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
                                     ? "Video"
                                     : item.type === "audio"
                                       ? "Ses"
-                                      : "Metin"}
+                                      : item.type === "youtube"
+                                        ? "YouTube"
+                                        : "Metin"}
                               </Badge>
                             </div>
                             <Button
@@ -789,7 +793,9 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
                                   ? "Video"
                                   : type === "audio"
                                     ? "Ses"
-                                    : "Metin"}
+                                    : type === "youtube"
+                                      ? "YouTube"
+                                      : "Metin"}
                               :
                             </span>
                             <span>{count}</span>
