@@ -790,6 +790,18 @@ export async function getMediaItemsByContentId(nfcContentId: string) {
     throw error
   }
 }
+export async function deleteMediaItem(id: string) {
+  try {
+    const result = await sql`
+      DELETE FROM media_items WHERE id = ${id}
+      RETURNING *
+    `
+    return result[0] || null
+  } catch (error) {
+    console.error("Error deleting media item:", error)
+    throw error
+  }
+}
 // Admin specific functions - FIXED VERSION
 export async function getAllOrdersForAdmin(filters: {
   limit?: number

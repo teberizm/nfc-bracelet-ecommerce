@@ -53,6 +53,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     uploadAudioBlob,
     uploadTextItem,
     uploadYouTubeUrl,
+    deleteMediaItem,
   } = useContent()
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
@@ -307,8 +308,8 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
   }
 
    
-  const handleRemoveItem = (itemId: string) => {
-    dispatch({ type: "REMOVE_MEDIA_ITEM", payload: { orderId, itemId } })
+  const handleRemoveItem = async (itemId: string) => {
+    await deleteMediaItem(orderId, itemId)
     toast({
       title: "İçerik Silindi",
       description: "İçerik başarıyla silindi.",

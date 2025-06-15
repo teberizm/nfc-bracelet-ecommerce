@@ -76,6 +76,7 @@ const ContentContext = createContext<{
     title: string,
     url: string,
   ) => Promise<MediaContent>
+  deleteMediaItem: (orderId: string, itemId: string) => Promise<void>
   fetchMediaItems: (orderId: string) => Promise<void>
 } | null>(null)
 
@@ -687,6 +688,23 @@ export function ContentProvider({ children }: { children: ReactNode }) {
 
     return mediaItem
   }
+  const deleteMediaItem = async (orderId: string, itemId: string): Promise<void> => {
+    dispatch({ type: "REMOVE_MEDIA_ITEM", payload: { orderId, itemId } })
+
+    if (authState.isAuthenticated) {
+      try {
+        const token = localStorage.getItem("authToken")
+        if (!token) return
+
+        await fetch(`/api/media-items/${itemId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      } catch (error) {
+        console.error("Delete media item error:", error)
+      }
+    }
+  }
   return (
     <ContentContext.Provider
       value={{
@@ -697,6 +715,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
         uploadAudioBlob,
         uploadTextItem,
         uploadYouTubeUrl,
+        deleteMediaItem,
         fetchPublicOrderContent,
         fetchMediaItems,
       }}
