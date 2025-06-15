@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { verifyToken } from "@/lib/auth"
-import { createNFCContent, updateNFCContent } from "@/lib/database"
+import { createNFCContent, updateNFCContent, getThemeBySlug } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +16,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { orderId, themeId, theme, customizations } = body
-    const finalThemeId = themeId || theme || null
+    let finalThemeId = themeId || null
+    if (!finalThemeId && theme) {
+      const themeRecord = await getThemeBySlug(theme)
+      finalThemeId = themeRecord?.id || null
+    }
 
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Missing orderId" }, { status: 400 })
@@ -24,6 +28,9 @@ export async function POST(request: NextRequest) {
     
 
     const created = await createNFCContent({ order_id: orderId, theme_id: finalThemeId, customizations })
+    if (!created) {
+      throw new Error("Creation failed")
+    }
     const normalized = { ...created, themeId: created.theme_id }
     return NextResponse.json({ success: true, nfcContent: normalized })
   } catch (error) {
@@ -46,13 +53,20 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
     const { orderId, themeId, theme, customizations } = body
-    const finalThemeId = themeId || theme
+     let finalThemeId = themeId || null
+    if (!finalThemeId && theme) {
+      const themeRecord = await getThemeBySlug(theme)
+      finalThemeId = themeRecord?.id || null
+    }
 
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Missing orderId" }, { status: 400 })
     }
 
     const updated = await updateNFCContent(orderId, { theme_id: finalThemeId, customizations })
+    if (!updated) {
+      throw new Error("Update failed")
+    }
     const normalized = { ...updated, themeId: updated.theme_id }
     return NextResponse.json({ success: true, nfcContent: normalized })
   } catch (error) {

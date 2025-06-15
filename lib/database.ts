@@ -356,7 +356,17 @@ export async function getProductSpecifications(productId: string) {
     throw error
   }
 }
-
+export async function getThemeBySlug(slug: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM nfc_themes WHERE slug = ${slug} LIMIT 1
+    `
+    return result[0] || null
+  } catch (error) {
+    console.error("Error getting theme by slug:", error)
+    throw error
+  }
+}
 // Category functions
 export async function getAllCategories() {
   try {
