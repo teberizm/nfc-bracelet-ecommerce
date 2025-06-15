@@ -291,23 +291,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
                 ))}
               </CardContent>
             </Card>
-            <div className="mt-4">
-              <h3 className="flex items-center gap-2 text-sm font-medium mb-2">
-                <Eye className="h-4 w-4" /> Demo Önizlemeleri
-              </h3>
-              <div className="overflow-x-auto">
-                <div className="flex gap-4 pb-2">
-                  {state.availableThemes.map((theme) => (
-                    <iframe
-                      key={theme.id}
-                      src={`/demo/${theme.id}`}
-                      title={`${theme.name} demo`}
-                      className="w-64 h-96 rounded-lg border flex-shrink-0"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+            
             {/* Kapak Fotoğrafı Seçimi */}
             {selectedTheme && images.length > 0 && (
               <Card className="mt-6">
@@ -401,34 +385,11 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
                     }}
                   >
                     {selectedTheme ? (
-                      <div
-                        className="h-full p-4"
-                        style={{
-                          background: selectedTheme.layout.backgroundColor,
-                          color: selectedTheme.layout.textColor,
-                          fontFamily: selectedTheme.layout.fontFamily,
-                         
-                        }}
-                      >
-                        {/* Kapak Fotoğrafı Önizleme */}
-                        <div className="text-center mb-6">
-                          <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-white/30 mb-4">
-                            {selectedCoverPhoto ? (
-                              <Image
-                                src={selectedCoverPhoto.content || "/placeholder.svg"}
-                                alt="Kapak"
-                                width={96}
-                                height={96}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : images[0] ? (
-                              <Image
-                                src={images[0].content || "/placeholder.svg"}
-                                alt="Kapak"
-                                width={96}
-                                height={96}
-                                className="w-full h-full object-cover"
-                              />
+                      <iframe
+                        src={`/demo/${selectedTheme.id}`}
+                        title={`${selectedTheme.name} demo`}
+                        className="w-full h-full border-0"
+                      />
                             ) : (
                               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                                 <Camera className="h-8 w-8 text-gray-400" />
