@@ -620,7 +620,7 @@ export async function createNFCContent(contentData: {
     `
     return result[0]
   } catch (error) {
-    console.error("Error creating NFC customizations:", error)
+    console.error("Error creating NFC content:", error)
     throw error
   }
 }
@@ -632,7 +632,7 @@ export async function getNFCContentByOrderId(orderId: string) {
     `
     return result[0] || null
   } catch (error) {
-    console.error("Error getting NFC customizations by order id:", error)
+    console.error("Error getting NFC content by order id:", error)
     throw error
   }
 }
@@ -656,6 +656,7 @@ export async function updateNFCContent(
     if (contentData.customizations) {
       updates.push("customizations = $" + (values.length + 1))
       values.push(JSON.stringify(contentData.customizations))
+    }
 
     if (updates.length === 0) {
       throw new Error("No updates provided")
