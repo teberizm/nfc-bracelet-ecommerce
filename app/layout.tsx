@@ -12,13 +12,6 @@ import { usePathname } from "next/navigation"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "NFC Bileklik - Anılarınızı Teknoloji ile Buluşturun",
-  description:
-    "NFC teknolojisi ile donatılmış özel bileklikler. Fotoğraflarınızı, videolarınızı ve mesajlarınızı anında paylaşın.",
-    generator: 'v0.dev'
-}
-
 export default function RootLayout({
   children,
 }: {
