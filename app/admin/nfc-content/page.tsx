@@ -122,7 +122,12 @@ export default function AdminNFCContentPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={filters.theme} onValueChange={(value) => setFilters({ ...filters, theme: value })}>
+             <Select
+              value={filters.theme}
+              onValueChange={(value) =>
+                setFilters({ ...filters, theme: value === "all" ? "" : value })
+              }
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Tema seçin" />
               </SelectTrigger>
