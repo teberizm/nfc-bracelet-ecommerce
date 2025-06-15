@@ -97,33 +97,6 @@ export default function ProfilePage() {
     router.push("/")
   }
 
-  useEffect(() => {
-    const initialStates: Record<
-      string,
-      {
-        contentUploaded: boolean
-        themeSelected: boolean
-        useSameContent: boolean
-      }
-    > = {}
-
-    state.orders.forEach((order) => {
-      order.items.forEach((item, itemIndex) => {
-        for (let i = 0; i < item.quantity; i++) {
-          const key = `${order.id}-${itemIndex}-${i}`
-          initialStates[key] = {
-            contentUploaded: !!order.nfcContentUploaded,
-            themeSelected: !!order.themeSelected,
-            useSameContent: false,
-          }
-        }
-      })
-    })
-
-    setNfcStates(initialStates)
-  }, [state.orders])
-
-
   const handleUseSameContent = (itemKey: string, checked: boolean) => {
     setNfcStates((prev) => ({
       ...prev,
@@ -591,14 +564,15 @@ export default function ProfilePage() {
                                           )}
                                         </Button>
 
-                                         
+                                        {(currentNfcState.contentUploaded || currentNfcState.useSameContent) &&
+                                          currentNfcState.themeSelected && (
                                             <Button variant="outline" size="sm" asChild>
                                               <Link href={`/order/${order.id}/preview?item=${itemKey}`}>
                                                 <Eye className="h-4 w-4 mr-2" />
                                                 Görüntüle
                                               </Link>
                                             </Button>
-                                          
+                                          )}
                                       </div>
                                     </div>
                                   )}
