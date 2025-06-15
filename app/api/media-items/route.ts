@@ -24,7 +24,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Missing content id" }, { status: 400 })
     }
 
-    const items = await getMediaItemsByContentId(contentId)
+     const rawItems = await getMediaItemsByContentId(contentId)
+    const items = rawItems.map((item) => ({
+      id: item.id,
+      nfc_content_id: item.nfc_content_id,
+      type: item.type,
+      title: item.title,
+      content: item.content,
+      thumbnailUrl: item.thumbnail_url,
+      file_size: item.file_size,
+      duration: item.duration,
+      mime_type: item.mime_type,
+      sort_order: item.sort_order,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+    }))
     return NextResponse.json({ success: true, items })
   } catch (error) {
     console.error("Error in GET /api/media-items:", error)
@@ -73,7 +87,21 @@ export async function POST(request: NextRequest) {
       sort_order: sortOrder ? Number(sortOrder) : 0,
     })
 
-    return NextResponse.json({ success: true, mediaItem })
+    const normalized = {
+      id: mediaItem.id,
+      nfc_content_id: mediaItem.nfc_content_id,
+      type: mediaItem.type,
+      title: mediaItem.title,
+      content: mediaItem.content,
+      thumbnailUrl: mediaItem.thumbnail_url,
+      file_size: mediaItem.file_size,
+      duration: mediaItem.duration,
+      mime_type: mediaItem.mime_type,
+      sort_order: mediaItem.sort_order,
+      createdAt: mediaItem.created_at,
+      updatedAt: mediaItem.updated_at,
+    }
+     return NextResponse.json({ success: true, mediaItem: normalized })
   } catch (error) {
     console.error("Error in POST /api/media-items:", error)
     return NextResponse.json({ success: false, message: "Server error" }, { status: 500 })

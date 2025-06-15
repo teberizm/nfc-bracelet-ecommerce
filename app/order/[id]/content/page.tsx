@@ -279,7 +279,7 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
       type: "audio",
       title: youtubeTitle,
       content: youtubeUrl,
-      thumbnail: `https://img.youtube.com/vi/${extractYouTubeId(youtubeUrl)}/maxresdefault.jpg`,
+      thumbnailUrl: `https://img.youtube.com/vi/${extractYouTubeId(youtubeUrl)}/maxresdefault.jpg`,
       createdAt: new Date().toISOString(),
     }
 

@@ -8,10 +8,9 @@ export interface MediaContent {
   type: "image" | "video" | "audio" | "text"
   title: string
   content: string // URL for media, text content for text type
-  thumbnail?: string
+  thumbnailUrl?: string
   duration?: number // for video/audio
   createdAt: string
-
 }
 
 export interface Theme {
@@ -331,7 +330,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
             type: "video",
             title: "Birlikte Geçirdiğimiz Anlar",
             content: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4",
-            thumbnail: "https://images.unsplash.com/photo-1518568814500-bf0f8d125f46?w=400&h=300&fit=crop",
+            thumbnailUrl: "https://images.unsplash.com/photo-1518568814500-bf0f8d125f46?w=400&h=300&fit=crop",
             duration: 60,
             createdAt: new Date().toISOString(),
           },
@@ -367,9 +366,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
           type: item.type,
           title: item.title,
           content: item.content,
-          thumbnail: item.thumbnail_url || undefined,
+          thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || undefined,
           duration: item.duration || undefined,
-          createdAt: item.created_at,
+          createdAt: item.createdAt || item.created_at,
         }))
 
         dispatch({
@@ -419,9 +418,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       type: data.mediaItem.type,
       title: data.mediaItem.title,
       content: data.mediaItem.content,
-      thumbnail: data.mediaItem.thumbnail_url || undefined,
+      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
       duration: data.mediaItem.duration || undefined,
-      createdAt: data.mediaItem.created_at,
+      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
     }
 
     dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })

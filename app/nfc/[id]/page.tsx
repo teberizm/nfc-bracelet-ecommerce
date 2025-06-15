@@ -467,7 +467,7 @@ export default function NFCPage({ params }: NFCPageProps) {
                         <video
                           ref={videoRef}
                           src={section.data.content}
-                          poster={section.data.thumbnail}
+                          poster={section.data.thumbnailUrl}
                           controls
                           className="w-full aspect-video object-cover"
                         />
@@ -825,7 +825,7 @@ export default function NFCPage({ params }: NFCPageProps) {
                         <video
                           ref={videoRef}
                           src={section.data.content}
-                          poster={section.data.thumbnail}
+                          poster={section.data.thumbnailUrl}
                           controls
                           className="w-full aspect-video object-cover"
                         />
@@ -1168,7 +1168,7 @@ export default function NFCPage({ params }: NFCPageProps) {
                         <video
                           ref={videoRef}
                           src={section.data.content}
-                          poster={section.data.thumbnail}
+                          poster={section.data.thumbnailUrl}
                           controls
                           className="w-full aspect-video object-cover"
                         />
