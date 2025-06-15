@@ -17,6 +17,7 @@ import {
   Trophy,
   Award,
   Crown,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -95,7 +96,18 @@ export default function NFCPage({ params }: NFCPageProps) {
     }
   }
 
-  if (!orderContent || !orderContent.selectedTheme) {
+  if (orderContent === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 to-purple-100">
+        <Card className="p-8 text-center max-w-md mx-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-pink-400" />
+          <p className="text-gray-600">Yükleniyor...</p>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!orderContent.selectedTheme) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 to-purple-100">
         <Card className="p-8 text-center max-w-md mx-4">
