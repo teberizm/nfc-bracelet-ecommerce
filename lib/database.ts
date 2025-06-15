@@ -675,7 +675,63 @@ export async function updateNFCContent(
     throw error
   }
 }
+export async function createMediaItem(itemData: {
+  nfc_content_id: string
+  type: string
+  title: string
+  content: string
+  thumbnail_url?: string | null
+  file_size?: number | null
+  duration?: number | null
+  mime_type?: string | null
+  sort_order?: number | null
+}) {
+  try {
+    const result = await sql`
+      INSERT INTO media_items (
+        nfc_content_id,
+        type,
+        title,
+        content,
+        thumbnail_url,
+        file_size,
+        duration,
+        mime_type,
+        sort_order
+      )
+      VALUES (
+        ${itemData.nfc_content_id},
+        ${itemData.type},
+        ${itemData.title},
+        ${itemData.content},
+        ${itemData.thumbnail_url},
+        ${itemData.file_size},
+        ${itemData.duration},
+        ${itemData.mime_type},
+        ${itemData.sort_order ?? 0}
+      )
+      RETURNING *
+    `
+    return result[0]
+  } catch (error) {
+    console.error("Error creating media item:", error)
+    throw error
+  }
+}
 
+export async function getMediaItemsByContentId(nfcContentId: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM media_items
+      WHERE nfc_content_id = ${nfcContentId}
+      ORDER BY sort_order, created_at
+    `
+    return result
+  } catch (error) {
+    console.error("Error getting media items by content id:", error)
+    throw error
+  }
+}
 // Admin specific functions - FIXED VERSION
 export async function getAllOrdersForAdmin(filters: {
   limit?: number
