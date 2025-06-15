@@ -55,6 +55,7 @@ type ContentAction =
   | { type: "SELECT_THEME"; payload: { orderId: string; theme: Theme } }
   | { type: "UPDATE_CUSTOMIZATIONS"; payload: { orderId: string; customizations: Record<string, any> } }
   | { type: "PUBLISH_CONTENT"; payload: { orderId: string } }
+  | { type: "SET_NFC_CONTENT_ID"; payload: { orderId: string; nfcContentId: string } }
   | { type: "SET_LOADING"; payload: boolean }
 
 const ContentContext = createContext<{
@@ -228,7 +229,22 @@ function contentReducer(state: ContentState, action: ContentAction): ContentStat
           },
         },
       }
-
+      case "SET_NFC_CONTENT_ID":
+      const baseContent = state.orderContents[action.payload.orderId] || {
+        orderId: action.payload.orderId,
+        mediaItems: [],
+        isPublished: false,
+      }
+      return {
+        ...state,
+        orderContents: {
+          ...state.orderContents,
+          [action.payload.orderId]: {
+            ...baseContent,
+            nfcContentId: action.payload.nfcContentId,
+          },
+        },
+      }
     case "SET_LOADING":
       return {
         ...state,

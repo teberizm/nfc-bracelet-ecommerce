@@ -104,7 +104,7 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
     })
   }
 
-  const handleSaveAndPublish = () => {
+  const handleSaveAndPublish = async () => {
     if (!selectedTheme) {
       toast({
         title: "Tema Seçin",
@@ -129,28 +129,62 @@ export default function ThemeSelectionPage({ params }: ThemeSelectionPageProps) 
       payload: { orderId, customizations },
     })
 
-    // İçeriği yayınla
+     try {
+      const token = localStorage.getItem("authToken")
+      if (!token) throw new Error("Not authenticated")
+
+      const body = {
+        orderId,
+        theme: selectedTheme.id,
+        content: {
+          customizations,
+          coverPhotoId: selectedCoverPhoto?.id,
+        },
+      }
+
+      const method = orderContent?.nfcContentId ? "PUT" : "POST"
+      const response = await fetch("/api/nfc-content", {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      })
+
+    const data = await response.json()
+      if (!data.success || !data.nfcContent) {
+        throw new Error("Request failed")
+      }
+
+    dispatch({
+        type: "SET_NFC_CONTENT_ID",
+        payload: { orderId, nfcContentId: data.nfcContent.id },
+      })
+
     dispatch({ type: "PUBLISH_CONTENT", payload: { orderId } })
 
-    // Sipariş durumunu güncelle
-    const updatedOrders = authState.orders.map((o) =>
-      o.id === orderId
-        ? {
-            ...o,
-            nfcContentUploaded: true,
-            themeSelected: true,
-          }
-        : o,
-    )
+      const updatedOrders = authState.orders.map((o) =>
+        o.id === orderId
+          ? { ...o, nfcContentUploaded: true, themeSelected: true }
+          : o,
+      )
+      authDispatch({ type: "SET_ORDERS", payload: updatedOrders })
 
-    authDispatch({ type: "SET_ORDERS", payload: updatedOrders })
+      toast({
+        title: "Başarılı! 🎉",
+        description: "NFC içeriğiniz hazırlandı ve yayınlandı.",
+      })
 
-    toast({
-      title: "Başarılı! 🎉",
-      description: "NFC içeriğiniz hazırlandı ve yayınlandı.",
-    })
-
-    router.push(`/order/${orderId}/preview`)
+      router.push(`/order/${orderId}/preview`)
+    } catch (error) {
+      console.error("NFC content save error:", error)
+      toast({
+        title: "Hata",
+        description: "NFC içeriği kaydedilirken bir hata oluştu.",
+        variant: "destructive",
+      })
+    }
   }
 
   const getDeviceIcon = (device: string) => {
