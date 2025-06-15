@@ -58,32 +58,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
     }
 
-    const formData = await request.formData()
-    const nfcContentId = formData.get("nfc_content_id") as string | null
-    const type = formData.get("type") as string | null
-    const title = formData.get("title") as string | null
-    const sortOrder = formData.get("sort_order") as string | null
-    const duration = formData.get("duration") as string | null
-    const thumbnailUrl = formData.get("thumbnail_url") as string | null
-    const file = formData.get("file") as File | null
+    const contentType = request.headers.get("content-type") || ""
+    let nfcContentId: string | null = null
+    let type: string | null = null
+    let title: string | null = null
+    let sortOrder: string | null = null
+    let duration: string | null = null
+    let thumbnailUrl: string | null = null
+    let file: File | null = null
+    let contentValue: string | null = null
 
-    if (!nfcContentId || !type || !title || !file) {
+    if (contentType.startsWith("multipart/form-data")) {
+      const formData = await request.formData()
+      nfcContentId = formData.get("nfc_content_id") as string | null
+      type = formData.get("type") as string | null
+      title = formData.get("title") as string | null
+      sortOrder = formData.get("sort_order") as string | null
+      duration = formData.get("duration") as string | null
+      thumbnailUrl = formData.get("thumbnail_url") as string | null
+      file = formData.get("file") as File | null
+      contentValue = formData.get("content") as string | null
+    } else {
+      const body = await request.json()
+      nfcContentId = body.nfc_content_id ?? null
+      type = body.type ?? null
+      title = body.title ?? null
+      sortOrder = body.sort_order ?? null
+      duration = body.duration ?? null
+      thumbnailUrl = body.thumbnail_url ?? null
+      contentValue = body.content ?? null
+    }
+
+    if (!nfcContentId || !type || !title || (!file && !contentValue)) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 })
     }
 
-    const ext = file.name.split(".").pop() || ""
-    const fileName = `media/${uuidv4()}.${ext}`
-    const blob = await put(fileName, file, { access: "public", addRandomSuffix: false })
+    let uploadedUrl: string | null = null
+    let fileSize: number | null = null
+    let mimeType: string | null = null
+
+    if (file) {
+      const ext = file.name.split(".").pop() || ""
+      const fileName = `media/${uuidv4()}.${ext}`
+      const blob = await put(fileName, file, { access: "public", addRandomSuffix: false })
+      uploadedUrl = blob.url
+      fileSize = file.size
+      mimeType = file.type
+    }
 
     const mediaItem = await createMediaItem({
       nfc_content_id: nfcContentId,
       type,
       title,
-      content: blob.url,
+      content: uploadedUrl ?? (contentValue as string),
       thumbnail_url: thumbnailUrl,
-      file_size: file.size,
+      file_size: fileSize,
       duration: duration ? Number(duration) : null,
-      mime_type: file.type,
+      mime_type: mimeType,
       sort_order: sortOrder ? Number(sortOrder) : 0,
     })
 
