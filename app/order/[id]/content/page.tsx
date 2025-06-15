@@ -49,6 +49,9 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     state,
     dispatch,
     getOrderContent,
+    uploadMedia,
+    uploadAudioBlob,
+    uploadTextItem,
     uploadYouTubeUrl,
   } = useContent()
   const router = useRouter()
@@ -157,7 +160,8 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
 
     try {
       for (const textItem of validTexts) {
-         await uploadMedia(orderId, textItem.content, "text", textItem.title)
+        const item = await uploadTextItem(orderId, textItem.title, textItem.content)
+        dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item } })
       }
       } catch (error) {
       toast({
@@ -233,10 +237,13 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     }
 
     try {
-      const file = new File([recordedAudio], "recording.wav", {
-        type: recordedAudio.type || "audio/wav",
-      })
-      await uploadMedia(orderId, file, "audio", audioTitle, recordingTime)
+      const item = await uploadAudioBlob(
+        orderId,
+        recordedAudio,
+        audioTitle,
+        recordingTime,
+      )
+      dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item } })
       toast({
         title: "Ses Kaydı Eklendi!",
         description: "Ses kaydınız başarıyla eklendi.",
@@ -277,7 +284,8 @@ export default function ContentUploadPage({ params }: ContentUploadPageProps) {
     }
 
     try {
-       await uploadMedia(orderId, youtubeUrl, "audio", youtubeTitle)
+      const item = await uploadYouTubeUrl(orderId, youtubeTitle, youtubeUrl)
+      dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item } })
     } catch (error) {
       toast({
         title: "Yükleme Hatası",
