@@ -60,18 +60,12 @@ const ContentContext = createContext<{
   state: ContentState
   dispatch: React.Dispatch<ContentAction>
   getOrderContent: (orderId: string) => OrderContent | undefined
-  uploadMedia: (orderId: string, file: File, type: MediaContent["type"], title: string) => Promise<MediaContent>
-  uploadAudioBlob: (
+    uploadMedia: (
     orderId: string,
-    blob: Blob,
+    data: File | string,
+    type: MediaContent["type"],
     title: string,
-    duration: number,
-  ) => Promise<MediaContent>
-  uploadTextItem: (orderId: string, title: string, content: string) => Promise<MediaContent>
-  uploadYouTubeUrl: (
-    orderId: string,
-    title: string,
-    url: string,
+    duration?: number,
   ) => Promise<MediaContent>
   fetchMediaItems: (orderId: string) => Promise<void>
 } | null>(null)
@@ -438,11 +432,11 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   }
   const uploadMedia = async (
     orderId: string,
-    file: File,
+    data: File | string,
     type: MediaContent["type"],
     title: string,
+   duration?: number,
   ): Promise<MediaContent> => {
-    // Mock file upload (gerçek uygulamada cloud storage'a yüklenecek)
     const nfcContentId = await ensureNFCContent(orderId)
 
     const token = localStorage.getItem("authToken")
@@ -450,187 +444,71 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       throw new Error("Not authenticated")
     }
 
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("nfc_content_id", nfcContentId)
-    formData.append("type", type)
-    formData.append("title", title)
+      let response: Response
 
-    const response = await fetch("/api/media-items", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    })
+    if (data instanceof File) {
+      const formData = new FormData()
+      formData.append("file", data)
+      formData.append("nfc_content_id", nfcContentId)
+      formData.append("type", type)
+      formData.append("title", title)
+      if (duration) formData.append("duration", duration.toString())
+      response = await fetch("/api/media-items", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+    } else {
+      const payload: any = {
+        nfc_content_id: nfcContentId,
+        type,
+        title,
+        content: data,
+      }
+      if (duration) payload.duration = duration
+      if (type === "audio") {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*)/
+        const match = data.match(regExp)
+        const youtubeId = match && match[2].length === 11 ? match[2] : null
+        if (youtubeId) {
+          payload.thumbnail_url = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
+        }
+      }
+      response = await fetch("/api/media-items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      }) 
+    }
 
-    const data = await response.json()
-    if (!data.success || !data.mediaItem) {
+     const result = await response.json()
+    if (!result.success || !result.mediaItem) {
       throw new Error("Upload failed")
     }
     const mediaItem: MediaContent = {
-      id: data.mediaItem.id,
-      type: data.mediaItem.type,
-      title: data.mediaItem.title,
-      content: data.mediaItem.content,
-      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
-      duration: data.mediaItem.duration || undefined,
-      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
+      id: result.mediaItem.id,
+      type: result.mediaItem.type,
+      title: result.mediaItem.title,
+      content: result.mediaItem.content,
+      thumbnailUrl: result.mediaItem.thumbnailUrl || result.mediaItem.thumbnail_url || undefined,
+      duration: result.mediaItem.duration || undefined,
+      createdAt: result.mediaItem.createdAt || result.mediaItem.created_at,
     }
-
     dispatch({ type: "ADD_MEDIA_ITEM", payload: { orderId, item: mediaItem } })
-    return mediaItem
-  }
-  const uploadAudioBlob = async (
-    orderId: string,
-    blob: Blob,
-    title: string,
-    duration: number,
-  ): Promise<MediaContent> => {
-    const nfcContentId = await ensureNFCContent(orderId)
-
-    const token = localStorage.getItem("authToken")
-    if (!token) {
-      throw new Error("Not authenticated")
-    }
-
-    const file = new File([blob], "recording.wav", { type: blob.type || "audio/wav" })
-
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("nfc_content_id", nfcContentId)
-    formData.append("type", "audio")
-    formData.append("title", title)
-    formData.append("duration", duration.toString())
-
-    const response = await fetch("/api/media-items", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    })
-
-    const data = await response.json()
-    if (!data.success || !data.mediaItem) {
-      throw new Error("Upload failed")
-    }
-    const mediaItem: MediaContent = {
-      id: data.mediaItem.id,
-      type: data.mediaItem.type,
-      title: data.mediaItem.title,
-      content: data.mediaItem.content,
-      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
-      duration: data.mediaItem.duration || undefined,
-      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
-    }
-
-    return mediaItem
-  }
-  const uploadTextItem = async (
-    orderId: string,
-    title: string,
-    content: string,
-  ): Promise<MediaContent> => {
-    const nfcContentId = await ensureNFCContent(orderId)
-
-    const token = localStorage.getItem("authToken")
-    if (!token) {
-      throw new Error("Not authenticated")
-    }
-
-    const response = await fetch("/api/media-items", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        nfc_content_id: nfcContentId,
-        type: "text",
-        title,
-        content,
-      }),
-    })
-
-    const data = await response.json()
-    if (!data.success || !data.mediaItem) {
-      throw new Error("Upload failed")
-    }
-    const mediaItem: MediaContent = {
-      id: data.mediaItem.id,
-      type: data.mediaItem.type,
-      title: data.mediaItem.title,
-      content: data.mediaItem.content,
-      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
-      duration: data.mediaItem.duration || undefined,
-      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
-    }
-
-    return mediaItem
-  }
-  const uploadYouTubeUrl = async (
-    orderId: string,
-    title: string,
-    url: string,
-  ): Promise<MediaContent> => {
-    const nfcContentId = await ensureNFCContent(orderId)
-
-    const token = localStorage.getItem("authToken")
-    if (!token) {
-      throw new Error("Not authenticated")
-    }
-
-    const extractYouTubeId = (link: string) => {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
-      const match = link.match(regExp)
-      return match && match[2].length === 11 ? match[2] : null
-    }
-
-    const youtubeId = extractYouTubeId(url)
-    const thumbnailUrl = youtubeId
-      ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
-      : undefined
-
-    const response = await fetch("/api/media-items", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        nfc_content_id: nfcContentId,
-        type: "audio",
-        title,
-        content: url,
-        thumbnail_url: thumbnailUrl,
-      }),
-    })
-
-    const data = await response.json()
-    if (!data.success || !data.mediaItem) {
-      throw new Error("Upload failed")
-    }
-    const mediaItem: MediaContent = {
-      id: data.mediaItem.id,
-      type: data.mediaItem.type,
-      title: data.mediaItem.title,
-      content: data.mediaItem.content,
-      thumbnailUrl: data.mediaItem.thumbnailUrl || data.mediaItem.thumbnail_url || undefined,
-      duration: data.mediaItem.duration || undefined,
-      createdAt: data.mediaItem.createdAt || data.mediaItem.created_at,
-    }
-
     return mediaItem
   }
   return (
     <ContentContext.Provider
       value={{
-        state,
-        dispatch,
-        getOrderContent,
-        uploadMedia,
-        uploadAudioBlob,
-        uploadTextItem,
-        uploadYouTubeUrl,
-        fetchMediaItems,
-      }}
+          state,
+          dispatch,
+          getOrderContent,
+          uploadMedia,
+          fetchMediaItems,
+        }}
     >
       {children}
     </ContentContext.Provider>
