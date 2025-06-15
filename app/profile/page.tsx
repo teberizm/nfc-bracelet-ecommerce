@@ -526,7 +526,7 @@ export default function ProfilePage() {
                                   </div>
 
                                   {/* NFC Yönetim Butonları */}
-                                  {item.nfcEnabled && order.status === "delivered" && (
+                                  {item.nfcEnabled && order.status !== "canceled" && (
                                     <div className="ml-16 mt-3 space-y-3">
                                       {/* İkinci ve sonraki itemlar için "Aynı içeriği kullan" seçeneği */}
                                       {isSecondaryOfMultiple && firstItemState?.contentUploaded && (
