@@ -242,10 +242,9 @@ export default function ProfilePage() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile">Profil Bilgileri</TabsTrigger>
             <TabsTrigger value="orders">Siparişlerim ({state.orders.length})</TabsTrigger>
-            <TabsTrigger value="nfc">NFC Yönetimi</TabsTrigger>
           </TabsList>
 
           {/* Profil Bilgileri */}
@@ -599,24 +598,6 @@ export default function ProfilePage() {
             </div>
           </TabsContent>
 
-          {/* NFC Yönetimi */}
-          <TabsContent value="nfc">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-blue-600" />
-                  NFC Yönetimi
-                </CardTitle>
-                <CardDescription>NFC özellikli ürünlerinizi yönetin ve içeriklerinizi düzenleyin</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  <Zap className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p>NFC yönetim özellikleri yakında eklenecek...</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </div>
