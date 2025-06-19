@@ -37,7 +37,7 @@ function BottomYouTubePlayer({ url, title }: { url: string; title: string }) {
   }
 
   const id = extractId(url)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isPlaying, setIsPlaying] = useState(true)
 
   const postCommand = (cmd: string) => {
@@ -90,6 +90,7 @@ export default function NFCPage({ params }: NFCPageProps) {
   const [showHearts, setShowHearts] = useState(false)
   const [showStars, setShowStars] = useState(false)
   const [showSparkles, setShowSparkles] = useState(false)
+  const [journeyStarted, setJourneyStarted] = useState(false)
   const [selectedImageSlot, setSelectedImageSlot] = useState<number | null>(null)
   const [isImageSelectorOpen, setIsImageSelectorOpen] = useState(false)
   const [scrollY, setScrollY] = useState(0)
@@ -641,7 +642,14 @@ export default function NFCPage({ params }: NFCPageProps) {
           </section>
         </div>
       </div>
-      {firstYoutube && (
+      {firstYoutube && !journeyStarted && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+          <Button onClick={() => setJourneyStarted(true)} className="text-white text-lg bg-pink-500 hover:bg-pink-600 px-6 py-3">
+            Büyülü yolculuğa başla
+          </Button>
+        </div>
+      )}
+      {firstYoutube && journeyStarted && (
         <BottomYouTubePlayer url={firstYoutube.content} title={firstYoutube.title} />
       )}
       </>
@@ -685,7 +693,7 @@ export default function NFCPage({ params }: NFCPageProps) {
             ))}
           </div>
         )}
-
+        
         <div className="relative z-20">
           {/* Hero Section - Cover Photo */}
           <section className="min-h-screen flex items-center justify-center px-4 py-20">
@@ -997,7 +1005,14 @@ export default function NFCPage({ params }: NFCPageProps) {
           </section>
         </div>
       </div>
-     {firstYoutube && (
+     {firstYoutube && !journeyStarted && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+          <Button onClick={() => setJourneyStarted(true)} className="text-white text-lg bg-purple-500 hover:bg-purple-600 px-6 py-3">
+            Büyülü yolculuğa başla
+          </Button>
+        </div>
+      )}
+      {firstYoutube && journeyStarted && (
         <BottomYouTubePlayer url={firstYoutube.content} title={firstYoutube.title} />
       )}
       </>
@@ -1351,7 +1366,14 @@ export default function NFCPage({ params }: NFCPageProps) {
           </section>
         </div>
       </div>
-      {firstYoutube && (
+       {firstYoutube && !journeyStarted && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+          <Button onClick={() => setJourneyStarted(true)} className="text-white text-lg bg-yellow-500 hover:bg-yellow-600 px-6 py-3">
+            Büyülü yolculuğa başla
+          </Button>
+        </div>
+      )}
+      {firstYoutube && journeyStarted && (
         <BottomYouTubePlayer url={firstYoutube.content} title={firstYoutube.title} />
       )}
       </>
