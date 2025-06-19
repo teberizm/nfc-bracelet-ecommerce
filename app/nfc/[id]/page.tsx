@@ -37,19 +37,47 @@ function BottomYouTubePlayer({ url, title }: { url: string; title: string }) {
   }
 
   const id = extractId(url)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [isPlaying, setIsPlaying] = useState(true)
+
+  const postCommand = (cmd: string) => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    iframe.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func: cmd, args: [] }),
+      "*",
+    )
+  }
+
+  useEffect(() => {
+    postCommand("playVideo")
+  }, [])
+
+  const togglePlay = () => {
+    postCommand(isPlaying ? "pauseVideo" : "playVideo")
+    setIsPlaying(!isPlaying)
+  }
+
   if (!id) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black/80 z-50">
-      <div className="relative w-full h-24">
-        <iframe
-          src={`https://www.youtube.com/embed/${id}?autoplay=1`}
-          title={title}
-          allow="autoplay"
-          className="w-full h-full border-0"
-        />
-        <p className="absolute left-2 bottom-2 text-white text-sm">{title}</p>
-      </div>
+    <div className="fixed bottom-0 left-0 right-0 bg-black/80 z-50 flex items-center px-4 py-2 gap-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={togglePlay}
+        className="text-white hover:bg-white/10"
+      >
+        {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+      </Button>
+      <p className="text-white text-sm truncate flex-1">{title}</p>
+      <iframe
+        ref={iframeRef}
+        src={`https://www.youtube.com/embed/${id}?enablejsapi=1&autoplay=1`}
+        title={title}
+        allow="autoplay"
+        className="hidden"
+      />
     </div>
   )
 }
@@ -153,6 +181,7 @@ export default function NFCPage({ params }: NFCPageProps) {
   const audios = mediaItems.filter((item) => item.type === "audio")
   const texts = mediaItems.filter((item) => item.type === "text")
   const youtubeLinks = mediaItems.filter((item) => item.type === "youtube")
+  const firstYoutube = youtubeLinks[0]
 
   const coverPhotoId = orderContent.customizations?.coverPhotoId
   const coverPhoto =
@@ -217,6 +246,7 @@ export default function NFCPage({ params }: NFCPageProps) {
   // Eternal Love Theme
   if (selectedTheme.id === "eternal-love") {
     return (
+      <>
       <div className="min-h-screen relative overflow-hidden">
         {/* Animated Background */}
         <div
@@ -656,12 +686,17 @@ export default function NFCPage({ params }: NFCPageProps) {
           </section>
         </div>
       </div>
+      {firstYoutube && (
+        <BottomYouTubePlayer url={firstYoutube.content} title={firstYoutube.title} />
+      )}
+      </>
     )
   }
 
   // Wild Adventure Theme
   if (selectedTheme.id === "wild-adventure") {
     return (
+      <>
       <div className="min-h-screen relative overflow-hidden">
         {/* Dynamic Background */}
         <div
@@ -1007,12 +1042,18 @@ export default function NFCPage({ params }: NFCPageProps) {
           </section>
         </div>
       </div>
+     {firstYoutube && (
+        <BottomYouTubePlayer url={firstYoutube.content} title={firstYoutube.title} />
+      )}
+      </>
     )
   }
 
   // Golden Memories Theme
   if (selectedTheme.id === "golden-memories") {
+
     return (
+      <>
       <div className="min-h-screen relative overflow-hidden">
         {/* Elegant Background */}
         <div
@@ -1355,6 +1396,10 @@ export default function NFCPage({ params }: NFCPageProps) {
           </section>
         </div>
       </div>
+      {firstYoutube && (
+        <BottomYouTubePlayer url={firstYoutube.content} title={firstYoutube.title} />
+      )}
+      </>
     )
   }
 
