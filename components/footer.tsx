@@ -1,9 +1,17 @@
+"use client"
+
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Facebook, Twitter, Instagram, Youtube, Mail, Phone, MapPin } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 export function Footer() {
+   const pathname = usePathname()
+
+  if (pathname.startsWith("/nfc")) {
+    return null
+  }
   return (
     <footer className="bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-12">

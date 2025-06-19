@@ -29,6 +29,30 @@ interface NFCPageProps {
     id: string
   }
 }
+function BottomYouTubePlayer({ url, title }: { url: string; title: string }) {
+  const extractId = (link: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+    const match = link.match(regExp)
+    return match && match[2].length === 11 ? match[2] : null
+  }
+
+  const id = extractId(url)
+  if (!id) return null
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-black/80 z-50">
+      <div className="relative w-full h-24">
+        <iframe
+          src={`https://www.youtube.com/embed/${id}?autoplay=1`}
+          title={title}
+          allow="autoplay"
+          className="w-full h-full border-0"
+        />
+        <p className="absolute left-2 bottom-2 text-white text-sm">{title}</p>
+      </div>
+    </div>
+  )
+}
 
 export default function NFCPage({ params }: NFCPageProps) {
   const { getOrderContent } = useContent()

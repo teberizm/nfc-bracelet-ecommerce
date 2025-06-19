@@ -6,11 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/contexts/cart-context"
 import { useAuth } from "@/contexts/auth-context"
+import { usePathname } from "next/navigation"
 
 export function Header() {
   const { state: cartState } = useCart()
   const { state } = useAuth()
+ const pathname = usePathname()
 
+  if (pathname.startsWith("/nfc")) {
+    return null
+  }
   return (
     <header className="border-b bg-white sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
