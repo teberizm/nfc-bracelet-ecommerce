@@ -605,52 +605,7 @@ export default function NFCPage({ params }: NFCPageProps) {
                   </>
                 )}
 
-                {/* YouTube Section */}
-                {section.type === "youtube" && (
-                  <>
-                    <h4
-                      className="text-3xl font-bold text-center text-white mb-12"
-                      style={{
-                        fontFamily: "'Dancing Script', cursive",
-                        textShadow: "3px 3px 6px rgba(0,0,0,0.9)",
-                      }}
-                    >
-                      Bizim Şarkımız
-                    </h4>
-                    <div className="max-w-2xl mx-auto">
-                      <Card className="bg-white/15 backdrop-blur-md border-white/20 border overflow-hidden">
-                        <div className="aspect-video bg-black/20 relative group">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center">
-                              <Music className="h-16 w-16 text-pink-400 mx-auto mb-4" />
-                              <p
-                                className="text-white font-medium"
-                                style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.8)" }}
-                              >
-                                {section.data.title}
-                              </p>
-                              <p
-                                className="text-white/80 text-sm mt-2"
-                                style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.8)" }}
-                              >
-                                NFC etiketini okuttuğunuzda YouTube müzik çalacak
-                              </p>
-                            </div>
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        </div>
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Music className="h-5 w-5 text-pink-400" />
-                            <p className="text-white font-medium" style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.8)" }}>
-                              {section.data.title}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </>
-                )}
+                
               </div>
             </section>
           ))}
